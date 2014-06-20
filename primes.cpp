@@ -165,6 +165,30 @@ bool master_info::next_assignment (number& first, number& end)
 
     assert (first < end); // Could the opposite really occur?
 
-    return 0;
+    return true;
 }
 
+
+// The container's are_we_there_yet method
+
+bool container::are_we_there_yet()
+{
+    return (clean >= TOTAL_PRIMES);
+}
+
+
+// The container's largest prime getter
+
+number container::largest_clean ()
+{
+    return primes[clean--];
+}
+
+
+// The main main function
+
+int main()
+{
+
+    return 0;
+}

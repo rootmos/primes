@@ -1,8 +1,8 @@
 
 CPPFLAGS=-std=c++11
-LDFLAGS=-pthread
+LDFLAGS=
 
-CPP=clang
+CPP=clang++
 LD=$(CPP)
 
 CPP_CMD=$(CPP) $(CPPFLAGS) -o $@ -c $<
