@@ -128,12 +128,43 @@ void worker_thread::worker ()
 }
 
 
+// The container's report_prime method
 
-
-int main()
+void container::report_prime (number prime)
 {
+    std::lock_guard<std::mutex> lock (report_prime_mutex);
+
+    primes[used] = prime;
+
+    used++;
+
+    assert (used < BUFFER_SIZE); // What should we do when this fails?
+}
 
 
+// The master_info's next_assignment
+
+bool master_info::next_assignment (number& first, number& end)
+{
+    std::unique_lock<std::mutex> lock(assignment_mutex);
+
+    if (data.are_we_there_yet())
+        return false;
+
+    new_clean_primes.wait
+        (lock,
+         [this]
+            { return std::pow(data.largest_clean(),2) < largest_assigned;} );
+
+    first = largest_assigned + 2;
+    assert ( first % 2 == 1 ); // first should be an odd number
+
+    largest_assigned = end = std::pow(data.largest_clean(),2) / THREADS;
+    if (end % 2 == 1)
+        end--;
+
+    assert (first < end); // Could the opposite really occur?
 
     return 0;
 }
+
