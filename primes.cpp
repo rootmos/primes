@@ -5,6 +5,16 @@
 
 #include "primes.hpp"
 
+
+#ifndef NDEBUG
+#include <stdio.h>
+#define trace(vars) printf vars
+#else
+#define trace(vars)
+#endif
+
+
+
 // Worker thread's iterator constructor
 
 container::iterator::iterator (container* d):

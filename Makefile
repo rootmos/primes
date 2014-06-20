@@ -1,5 +1,6 @@
 
-CPPFLAGS=-std=c++11
+#RELEASE=-DNDEBUG
+CPPFLAGS=-std=c++11 $(RELEASE)
 LDFLAGS=
 
 CPP=clang++
