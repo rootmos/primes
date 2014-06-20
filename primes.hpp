@@ -5,10 +5,10 @@
 // Settings
 
 #define THREADS 2
-
 #define TOTAL_PRIMES 100
 #define BUFFER_SIZE 120
 #define CHECK_PRIMES 10     //Roughly: sqrt of TOTAL_PRIMES
+#define BORED_SORTER 200
 
 // Includes
 
@@ -32,15 +32,29 @@ class master_info;
 
 class container
 {
+    number largest_assigned;
+    std::mutex assignment_mutex;
+    std::condition_variable new_clean_primes;
+
+
     std::mutex report_prime_mutex;
 
     number primes[BUFFER_SIZE];
-    index used;
+    atomic_index used;
+    
+    // Number of sorted primes, i.e. not a zero-based index
     atomic_index clean;
 
     number get (index i);
 
+    std::thread sorter_thread;
+    void sorter ();
+
 public:
+
+    container();
+
+    bool next_assignment (number& first, number& end);
 
     void report_prime (number prime);
 
@@ -68,6 +82,8 @@ public:
 
     public:
 
+        // TODO: Move and copy constructors!
+
         number get (index i); // References or pointers for performance?
         number next ();
 
@@ -89,11 +105,9 @@ class worker_thread
     number assignment_end;
 
 
-    // Connections
+    // Connection to the data
 
-    master_info* master;
     container* data;
-    worker_thread* next;
 
     // The thread
     std::thread thread;
@@ -105,40 +119,11 @@ class worker_thread
 public:
 
 
-    worker_thread (master_info* master, container* data);
-
-    void set_next_thread (worker_thread* next);
+    worker_thread (container* data);
 
     void join ();
 
 };
-
-
-
-//The master info container/thread controller
-
-class master_info
-{
-    worker_thread* first;
-    worker_thread* last;
-
-    container data;
-
-    number largest_assigned;
-
-    std::mutex assignment_mutex;
-    std::condition_variable new_clean_primes;
-
-public:
-
-    master_info ();
-
-
-    bool next_assignment (number& first, number& end);
-
-};
-
-
 
 
 #endif

@@ -2,6 +2,7 @@
 #include <thread>
 #include <cassert>
 #include <cmath>
+#include <chrono>
 
 #include "primes.hpp"
 
@@ -27,7 +28,7 @@ container::iterator::iterator (container* d):
 
 // Worker thread's iterator reset
 
-void container::iterator::reset ()
+inline void container::iterator::reset ()
 {
     this->i = 0;
 }
@@ -36,7 +37,7 @@ void container::iterator::reset ()
 
 // Worker thread's iterator next
 
-number container::iterator::next ()
+inline number container::iterator::next ()
 {
     i++;
 
@@ -58,7 +59,7 @@ number container::iterator::next ()
 
 // The container's get function
 
-number container::get (index i)
+inline number container::get (index i)
 {
     // We should only try to retrieve clean read-only data
     assert(i < clean);
@@ -69,7 +70,7 @@ number container::get (index i)
 
 // The container's get_iterator function
 
-container::iterator container::get_iterator ()
+inline container::iterator container::get_iterator ()
 {
     return iterator(this);
 }
@@ -78,25 +79,15 @@ container::iterator container::get_iterator ()
 
 // The worker thread's constructor
 
-worker_thread::worker_thread (master_info* m, container* d):
-    master(m),
+worker_thread::worker_thread (container* d):
     data(d),
-    next(nullptr),
     thread(&worker_thread::worker, this)
 {
 }
 
-
-// The worker thread's next thread setter
-
-void worker_thread::set_next_thread (worker_thread* n)
-{
-    next = n;
-}
-
 // The worker thread's join method
 
-void worker_thread::join ()
+inline void worker_thread::join ()
 {
     thread.join();
 }
@@ -109,7 +100,7 @@ void worker_thread::worker ()
     container::iterator itr = data->get_iterator();
     number divisor, divisor_limit, remainder;
 
-    while ( master->next_assignment (current, assignment_end) )
+    while ( data->next_assignment (current, assignment_end) )
     {
         // Ensure that we actually start with an odd number
         assert( current % 2 == 1 );
@@ -142,6 +133,7 @@ void worker_thread::worker ()
 
 void container::report_prime (number prime)
 {
+    trace (("Found prime: %d", prime));
     std::lock_guard<std::mutex> lock (report_prime_mutex);
 
     primes[used] = prime;
@@ -152,24 +144,24 @@ void container::report_prime (number prime)
 }
 
 
-// The master_info's next_assignment
+// The container's next_assignment
 
-bool master_info::next_assignment (number& first, number& end)
+bool container::next_assignment (number& first, number& end)
 {
     std::unique_lock<std::mutex> lock(assignment_mutex);
 
-    if (data.are_we_there_yet())
+    if (are_we_there_yet())
         return false;
 
     new_clean_primes.wait
         (lock,
          [this]
-            { return std::pow(data.largest_clean(),2) < largest_assigned;} );
+            { return std::pow(largest_clean(),2) < largest_assigned;} );
 
     first = largest_assigned + 2;
     assert ( first % 2 == 1 ); // first should be an odd number
 
-    largest_assigned = end = std::pow(data.largest_clean(),2) / THREADS;
+    largest_assigned = end = std::pow(largest_clean(),2) / THREADS;
     if (end % 2 == 1)
         end--;
 
@@ -181,7 +173,7 @@ bool master_info::next_assignment (number& first, number& end)
 
 // The container's are_we_there_yet method
 
-bool container::are_we_there_yet()
+inline bool container::are_we_there_yet ()
 {
     return (clean >= TOTAL_PRIMES);
 }
@@ -189,9 +181,45 @@ bool container::are_we_there_yet()
 
 // The container's largest prime getter
 
-number container::largest_clean ()
+inline number container::largest_clean ()
 {
     return primes[clean--];
+}
+
+
+// The sorter thread's poor sorter
+
+void container::sorter ()
+{
+    index from, to;
+    while (are_we_there_yet ())
+    {
+        from = clean + 1;
+        to = used--;
+
+        if (from == to)
+        {
+            trace (("The sorter was bored!"));
+            std::this_thread::sleep_for
+                (std::chrono::milliseconds (BORED_SORTER));
+
+            continue;
+        }
+
+       
+
+    } 
+}
+
+
+// The container's constructor
+
+container::container ():
+    sorter_thread (&container::sorter, this)
+{
+    // The initial prime!
+    primes[0] = 3;
+    used = clean = 1;
 }
 
 
@@ -199,6 +227,18 @@ number container::largest_clean ()
 
 int main()
 {
+    container data;
+    
+    worker_thread* workers[THREADS];
+
+    for (int i = 0; i < THREADS; i++)
+        workers[i] = new worker_thread (&data);
+    
+    for (int i = 0; i < THREADS; i++)
+    {
+        workers[i]->join();
+        delete workers[i];
+    }
 
     return 0;
 }
