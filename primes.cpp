@@ -1,6 +1,7 @@
 #include <iostream>
 #include <thread>
 #include <cassert>
+#include <cmath>
 
 #include "primes.hpp"
 
@@ -37,7 +38,7 @@ number container::iterator::next ()
         return primes[i];
 
     // We should only need to fetch the next prime
-    assert ( i == stored ); 
+    assert ( i == stored );
 
     stored++;
 
@@ -82,7 +83,7 @@ void worker_thread::set_next_thread (worker_thread* n)
 {
     next = n;
 }
-    
+
 // The worker thread's join method
 
 void worker_thread::join ()
@@ -96,17 +97,32 @@ void worker_thread::join ()
 void worker_thread::worker ()
 {
     container::iterator itr = data->get_iterator();
+    number divisor, divisor_limit, remainder;
 
     while ( master->next_assignment (current, assignment_end) )
     {
-        
-        // Test digit-sum?
-        
-        number divisor;
-        number limit = sqrt (
-        itr.reset();
+        // Ensure that we actually start with an odd number
+        assert( current % 2 == 1 );
 
+        while ( current <= assignment_end )
+        {
+            itr.reset();
+            divisor_limit = std::sqrt (current);
+            remainder = 0;
 
+            // Test digit-sum?
+
+            while ( (divisor = itr.next()) <= divisor_limit )
+            {
+                remainder = current % divisor;
+                if (remainder == 0)
+                    break;
+            }
+            if (remainder != 0)
+                data->report_prime (current);
+
+            current += 2; // Of course we skip the even numbers!
+        }
     }
 
 }

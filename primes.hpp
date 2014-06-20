@@ -46,12 +46,13 @@ public:
 
     class iterator
     {
+        // The thread-local cache, i.e. we hope that this access is quicker
         number primes[CHECK_PRIMES];
         index i;
         index stored;
 
         container* data;
-        
+
         friend iterator container::get_iterator ();
         iterator (container* data);
 
@@ -73,11 +74,11 @@ class worker_thread
 {
 
     // Current assignment
-    
+
     number current;
     number assignment_end;
 
-    
+
     // Connections
 
     master_info* master;
@@ -95,7 +96,7 @@ public:
 
 
     worker_thread (master_info* master, container* data);
-    
+
     void set_next_thread (worker_thread* nex);
 
     void join ();
