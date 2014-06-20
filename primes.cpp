@@ -102,6 +102,9 @@ void worker_thread::worker ()
 
     while ( data->next_assignment (current, assignment_end) )
     {
+        trace (("%d: I was assigned: %d to %d\n",
+               this, current, assignment_end));
+
         // Ensure that we actually start with an odd number
         assert( current % 2 == 1 );
 
@@ -124,6 +127,9 @@ void worker_thread::worker ()
 
             current += 2; // Of course we skip the even numbers!
         }
+
+        trace (("%d: I finished checking: %d to %d\n",
+                this, current, assignment_end));
     }
 
 }
@@ -197,6 +203,8 @@ void container::sorter ()
         from = clean + 1;
         to = used--;
 
+        trace (("Sorting indexes from: %d to: %d\n", from, to));
+
         if (from == to)
         {
             trace (("The sorter was bored!\n"));
@@ -209,6 +217,7 @@ void container::sorter ()
 
 
 
+        trace (("Done sorting indexes from: %d to: %d\n", from, to));
     }
 }
 
