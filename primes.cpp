@@ -133,7 +133,7 @@ void worker_thread::worker ()
 
 void container::report_prime (number prime)
 {
-    trace (("Found prime: %d", prime));
+    trace (("Found prime: %d\n", prime));
     std::lock_guard<std::mutex> lock (report_prime_mutex);
 
     primes[used] = prime;
@@ -199,16 +199,17 @@ void container::sorter ()
 
         if (from == to)
         {
-            trace (("The sorter was bored!"));
+            trace (("The sorter was bored!\n"));
             std::this_thread::sleep_for
                 (std::chrono::milliseconds (BORED_SORTER));
 
             continue;
         }
 
-       
 
-    } 
+
+
+    }
 }
 
 
@@ -228,12 +229,12 @@ container::container ():
 int main()
 {
     container data;
-    
+
     worker_thread* workers[THREADS];
 
     for (int i = 0; i < THREADS; i++)
         workers[i] = new worker_thread (&data);
-    
+
     for (int i = 0; i < THREADS; i++)
     {
         workers[i]->join();
