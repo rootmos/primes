@@ -46,6 +46,7 @@ class container
 public:
 
     container();
+    ~container();
 
     bool next_assignment (number& first, number& end);
 
@@ -113,8 +114,7 @@ public:
 
 
     worker_thread (container* data);
-
-    void join ();
+    ~worker_thread();
 
 };
 

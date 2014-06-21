@@ -90,7 +90,7 @@ worker_thread::worker_thread (container* d):
 
 // The worker thread's join method
 
-inline void worker_thread::join ()
+worker_thread::~worker_thread ()
 {
     thread.join();
 }
@@ -210,6 +210,7 @@ inline number container::largest_clean ()
 
 void quicksort (number* start, number* end)
 {
+    assert (start <= end);
     if (start == end) // A list of length 1 is always sorted
         return;
     else if (end == start + 1) // A list of length 2 is easy to sort
@@ -258,8 +259,10 @@ void quicksort (number* start, number* end)
     }
 
     // Sort the two partitions
-    quicksort(start, i-1);
-    quicksort(i+1, end);
+    if (start < i - 1 )
+        quicksort(start, i-1);
+    if ( i+1 <= end )
+        quicksort(i+1, end);
 }
 
 
@@ -305,8 +308,8 @@ void container::sorter ()
 
         // Output the sorted primes
 
-        for (index i = from; i <= to; i++)
-            std::cout << i << ": " << primes[i] << std::endl;
+        for (index i = from; i <= to && i <= TOTAL_PRIMES; i++)
+            std::cout << primes[i] << std::endl;
 
     }
 }
@@ -322,6 +325,13 @@ container::container ():
     used = clean = 1;
 }
 
+// The container's destructor
+
+container::~container()
+{
+    sorter_thread.join();
+}
+
 
 // The main main function
 
@@ -335,10 +345,7 @@ int main()
         workers[i] = new worker_thread (&data);
 
     for (int i = 0; i < THREADS; i++)
-    {
-        workers[i]->join();
         delete workers[i];
-    }
 
     return 0;
 }
