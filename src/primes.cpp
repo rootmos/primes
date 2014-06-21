@@ -261,13 +261,13 @@ void quicksort (number* start, number* end)
 
 void container::sorter ()
 {
+    std::unique_lock<std::mutex> lock(assignment_mutex);
     index from, to;
     while (are_we_there_yet ())
     {
         from = clean + 1;
         to = used--;
 
-        trace (("Sorting indexes from: %d to: %d\n", from, to));
 
         if (from == to)
         {
@@ -278,10 +278,26 @@ void container::sorter ()
             continue;
         }
 
+        trace (("Sorting indexes from: %d to: %d\n", from, to));
 
-
+        quicksort (&primes[from], &primes[to]);
 
         trace (("Done sorting indexes from: %d to: %d\n", from, to));
+
+        // Update the number of clean primes and signal waiting threads
+
+        lock.lock();
+
+        clean = to;
+
+        new_clean_primes.notify_all();
+        lock.unlock();
+
+        // Output the sorted primes
+
+        for (index i = from; i <= to; i++)
+            std::cout << i << ": " << primes[i] << std::endl;
+
     }
 }
 
