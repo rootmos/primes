@@ -17,9 +17,9 @@ using number = unsigned int;
 using index = unsigned int;
 using atomic_index = std::atomic<index>;
 
-// Forward decl, move master_info to own set of files?
+// Forward decl, move worker_thread to own set of files?
 
-class master_info;
+class worker_thread;
 
 // The data container
 
@@ -40,6 +40,12 @@ class container
 
     number get (index i);
 
+    // The start of the linked list of worker_threads
+    worker_thread* first;
+    atomic_index lowest_assigned;
+
+    // The sorter thread's thread and worker
+
     std::thread sorter_thread;
     void sorter ();
 
@@ -48,7 +54,9 @@ public:
     container();
     ~container();
 
-    bool next_assignment (number& first, number& end);
+    bool next_assignment (worker_thread* thread,
+                          number& first,
+                          number& end);
 
     void report_prime (number prime);
 
@@ -102,7 +110,7 @@ class worker_thread
     // The therad's parent and child
     
     worker_thread* parent;
-    worker_thread* next;
+    worker_thread* child;
 
 
     // Connection to the data
@@ -118,7 +126,7 @@ class worker_thread
 
 public:
 
-    void move_to_end(worker_thread* new_parent);
+    worker_thread* move_to_end(worker_thread* new_parent);
 
     worker_thread (container* data);
     ~worker_thread();

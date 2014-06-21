@@ -193,21 +193,42 @@ void container::report_prime (number prime)
 
 // The container's next_assignment
 
-bool container::next_assignment (number& first, number& end)
+bool container::next_assignment (worker_thread* thread,
+                                 number& first, number& end)
 {
     std::unique_lock<std::mutex> lock(assignment_mutex);
 
     if (are_we_there_yet())
         return false;
 
+    // Perhaps we need to wait for new clean, fresh, primes
     new_clean_primes.wait
         (lock,
          [this]
             { return std::pow(largest_clean(),2) > (largest_assigned + 2);} );
 
+    // Calculate the first number of the new assignment
     first = largest_assigned + 2;
     assert ( first % 2 == 1 ); // first should be an odd number
+  
+    // Update the linked list of workers and the lowes_assigned
+    // We do this here since we may need to use the value of end 
+    if (head != thread) // A worker in the middle finished
+        thread->move_to_end (tail);
+    else if(head == thread) // The head finished its assignment
+    {
+        head = thread->move_to_end(tail);
+        lowest_assigned = end + 2;
+    }
+    else if (head == nullptr) // This is the first assignment handed out
+    {
+        head = thread;
+        lowest_assigned = first;
+    }
+    
+    tail = thread;
 
+    // Calculate the end of the assignment
     end = first + (std::pow(largest_clean(),2) - first) / THREADS;
 
     if (end - first > ASSIGNMENT_MAX) // We should not take to large bites
@@ -217,13 +238,14 @@ bool container::next_assignment (number& first, number& end)
 
     assert (first <= end);
 
+    // Update the largest handed out
     largest_assigned = end;
 
     return true;
 }
 
 
-// The container's are_we_there_yet method
+// The container's nagging child
 
 inline bool container::are_we_there_yet ()
 {
@@ -353,6 +375,7 @@ void container::sorter ()
 // The container's constructor
 
 container::container ():
+    head(nullptr),
     sorter_thread (&container::sorter, this)
 {
     // The initial prime!
