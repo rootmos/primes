@@ -1,17 +1,9 @@
 #ifndef PRIMES_HPP
 #define PRIMES_HPP
 
-
-// Settings
-
-#define THREADS 2
-#define TOTAL_PRIMES 100
-#define BUFFER_SIZE 120
-#define CHECK_PRIMES 10     //Roughly: sqrt of TOTAL_PRIMES
-#define BORED_SORTER 200
-#define ASSIGNMENT_MAX 10
-
 // Includes
+
+#include "config.h"
 
 #include <thread>
 #include <mutex>

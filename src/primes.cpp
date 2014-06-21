@@ -102,8 +102,8 @@ void worker_thread::worker ()
 
     while ( data->next_assignment (current, assignment_end) )
     {
-        trace (("%d: I was assigned: %d to %d\n",
-               this, current, assignment_end));
+        trace (("%ld: I was assigned: %d to %d\n",
+                (uintptr_t)this, current, assignment_end));
 
         // Ensure that we actually start with an odd number
         assert( current % 2 == 1 );
@@ -128,8 +128,8 @@ void worker_thread::worker ()
             current += 2; // Of course we skip the even numbers!
         }
 
-        trace (("%d: I finished checking: %d to %d\n",
-                this, current, assignment_end));
+        trace (("%ld: I finished checking: %d to %d\n",
+                (uintptr_t)this, current, assignment_end));
     }
 
 }
