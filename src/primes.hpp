@@ -41,7 +41,8 @@ class container
     number get (index i);
 
     // The start of the linked list of worker_threads
-    worker_thread* first;
+    worker_thread* head;
+    worker_thread* tail;
     atomic_index lowest_assigned;
 
     // The sorter thread's thread and worker

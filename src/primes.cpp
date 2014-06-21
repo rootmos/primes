@@ -265,23 +265,10 @@ inline number container::largest_clean ()
 
 // Quicksort
 
-void quicksort (number* start, number* end)
+
+number* partition (number* pivot, number* start, number* end)
 {
-    assert (start <= end);
-    if (start == end) // A list of length 1 is always sorted
-        return;
-    else if (end == start + 1) // A list of length 2 is easy to sort
-    {
-        if ( *start > *end )
-            std::swap(*start, *end);
-
-        return;
-    }
-
-    // Let's choose the middle element as pivot
-    size_t pivot_index = (end-start)/2;
-
-    std::swap(start[pivot_index], *end);
+    std::swap(*pivot, *end);
 
     number* i = start;
     number* j;
@@ -315,11 +302,68 @@ void quicksort (number* start, number* end)
         }
     }
 
+    return i;
+}
+
+
+void quicksort (number* start, number* end)
+{
+    assert (start <= end);
+    if (start == end) // A list of length 1 is always sorted
+        return;
+    else if (end == start + 1) // A list of length 2 is easy to sort
+    {
+        if ( *start > *end )
+            std::swap(*start, *end);
+
+        return;
+    }
+
+    // Let's choose the middle element as pivot
+    size_t pivot_index = (end-start)/2;
+
+    number* i = partition (&start[pivot_index], start, end);
+
     // Sort the two partitions
     if (start < i - 1 )
         quicksort(start, i-1);
     if ( i+1 <= end )
         quicksort(i+1, end);
+}
+
+index quicksort_find_pivot_and_skip_top (number pivot, number* start, number* end)
+{
+    assert (start <= end);
+    if (start == end) // A list of length 1 is always sorted
+        return 1;
+    else if (end == start + 1) // A list of length 2 is easy to sort
+    {
+        if ( *start > *end )
+            std::swap(*start, *end);
+
+        return 2;
+    }
+
+    number* i = start;
+    while (i <= end)
+    {
+        if ( *i != pivot )
+            i++;
+    }
+    
+    if ( i > end )
+    {
+        assert ( 0 && "Couldn't find pivot in sort" );
+        return 0;
+    }
+
+    i = partition (i, start, end);
+
+    // Sort the two partitions
+    if (start < i - 1 )
+        quicksort(start, i-1);
+
+    return (i - start);
 }
 
 
@@ -350,7 +394,10 @@ void container::sorter ()
 
         trace (("Sorting indexes from: %d to: %d\n", from, to));
 
-        quicksort (&primes[from], &primes[to]);
+        index new_clean = 
+            quicksort_find_pivot_and_skip_top (lowest_assigned - 2,
+                                               &primes[from],
+                                               &primes[to]);
 
         trace (("Done sorting indexes from: %d to: %d\n", from, to));
 
@@ -358,7 +405,7 @@ void container::sorter ()
 
         lock.lock();
 
-        clean = to;
+        clean += new_clean;
 
         new_clean_primes.notify_all();
         lock.unlock();
