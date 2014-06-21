@@ -83,6 +83,8 @@ inline container::iterator container::get_iterator ()
 // The worker thread's constructor
 
 worker_thread::worker_thread (container* d):
+    parent(nullptr),
+    child(nullptr),
     data(d),
     thread(&worker_thread::worker, this)
 {
@@ -93,6 +95,39 @@ worker_thread::worker_thread (container* d):
 worker_thread::~worker_thread ()
 {
     thread.join();
+}
+
+// The worker thread's move_to_end method
+
+worker_thread* worker_thread::move_to_end(worker_thread* new_parent)
+{
+    if (child == nullptr) // This means that we already are the last
+    {
+        assert (new_parent == this);
+        return nullptr;
+    }
+
+    assert (new_parent != nullptr); // We don't like to be passed nullptr!
+    assert (new_parent->child == nullptr); // We should be added at the end
+
+    new_parent->child = this;
+    
+    if (parent != nullptr)
+    {
+        // If we have a parent we just remove ourselves from the chain
+        parent->child = child;
+        child = nullptr;
+        return nullptr;
+    }
+    else
+    {
+        // We are the first thread, so we return our child which becomes
+        // the new first thread
+        
+        worker_thread* retptr = child;
+        child = nullptr;
+        return retptr;
+    }
 }
 
 

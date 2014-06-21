@@ -98,6 +98,12 @@ class worker_thread
     number current;
     number assignment_end;
 
+    
+    // The therad's parent and child
+    
+    worker_thread* parent;
+    worker_thread* next;
+
 
     // Connection to the data
 
@@ -112,6 +118,7 @@ class worker_thread
 
 public:
 
+    void move_to_end(worker_thread* new_parent);
 
     worker_thread (container* data);
     ~worker_thread();
