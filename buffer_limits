@@ -1,5 +1,20 @@
 #!/usr/bin/bc -l
 
+define int(x) {
+    auto old_scale   /* variables global by default */
+    old_scale=scale  /* scale is global */
+    scale=0; ret=x/1
+    scale=old_scale
+    return ret
+}
+
+define ceil(x) {
+    auto intx
+    intx=int(x)
+    if (intx<x) intx+=1
+    return intx
+}
+
 define f(n)
 {
     return n*(l(n) - l(l(n)))
@@ -12,7 +27,7 @@ a = f(n)
 print "The "
 print n
 print "th prime is smaller than "
-print a
+print ceil(a)
 print "\n"
 
 
