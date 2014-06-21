@@ -5,9 +5,10 @@
 #include <chrono>
 
 #include "primes.hpp"
+#include "config.h"
 
 
-#ifndef NDEBUG
+#ifndef NTRACES
 #include <stdio.h>
 #define trace(vars) printf vars
 #else

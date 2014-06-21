@@ -3,7 +3,10 @@
 
 AC_PREREQ([2.69])
 AC_INIT([primes], [0.01], [gustav.behm@gmail.com])
+
 AM_INIT_AUTOMAKE
+
+m4_include([ac_header_traces.m4])
 
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_FILES([Makefile src/Makefile])
@@ -14,42 +17,46 @@ AC_ARG_VAR(THREADS, Number of worker threads)
 if test -z "$THREADS"; then
     THREADS=`echo \`nproc\` - 2 | bc`
 fi
-AC_DEFINE_UNQUOTED(THREADS, $THREADS, "Number of worker threads")
+AC_DEFINE_UNQUOTED(THREADS, $THREADS, Number of worker threads)
 
 
 AC_ARG_VAR(TOTAL_PRIMES, The number of primes to find)
 if test -z "$TOTAL_PRIMES"; then
     TOTAL_PRIMES=100
 fi
-AC_DEFINE_UNQUOTED(TOTAL_PRIMES, $TOTAL_PRIMES, "The number of primes to find")
+AC_DEFINE_UNQUOTED(TOTAL_PRIMES, $TOTAL_PRIMES, The number of primes to find)
 
 AC_ARG_VAR(BUFFER_SIZE, The buffer size)
 if test -z "$BUFFER_SIZE"; then
     BUFFER_SIZE=120
 fi
-AC_DEFINE_UNQUOTED(BUFFER_SIZE, $BUFFER_SIZE, "The buffer size")
+AC_DEFINE_UNQUOTED(BUFFER_SIZE, $BUFFER_SIZE, The buffer size)
 
 AC_ARG_VAR(CHECK_PRIMES, The number of prime factors needed for checks)
 if test -z "$CHECK_PRIMES"; then
     CHECK_PRIMES=10
 fi
-AC_DEFINE_UNQUOTED(CHECK_PRIMES, $CHECK_PRIMES, "The number of prime factors needed for checks")
+AC_DEFINE_UNQUOTED(CHECK_PRIMES, $CHECK_PRIMES,
+                   The number of prime factors needed for checks)
 
 AC_ARG_VAR(BORED_SORTER, The amount of milliseconds the sorter will sleep)
 if test -z "$BORED_SORTER"; then
     BORED_SORTER=200
 fi
-AC_DEFINE_UNQUOTED(BORED_SORTER, $BORED_SORTER, "The amount of milliseconds the sorter will sleep")
+AC_DEFINE_UNQUOTED(BORED_SORTER, $BORED_SORTER,
+                   The amount of milliseconds the sorter will sleep)
 
 AC_ARG_VAR(ASSIGNMENT_MAX, The maximum assignment lengt)
 if test -z "$ASSIGNMENT_MAX"; then
     ASSIGNMENT_MAX=10
 fi
-AC_DEFINE_UNQUOTED(ASSIGNMENT_MAX, $ASSIGNMENT_MAX, "The maximum assignment lengt")
+AC_DEFINE_UNQUOTED(ASSIGNMENT_MAX, $ASSIGNMENT_MAX,
+                   The maximum assignment length)
 
 
 # The debug option
 AC_HEADER_ASSERT
+AC_HEADER_TRACES
 
 
 
