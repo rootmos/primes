@@ -1,0 +1,21 @@
+#!/usr/bin/bc -l
+
+define f(n)
+{
+    return n*( l(n) - l(l(n)) ) 
+}
+
+n = 2000000
+
+a = n*f(n)
+
+k = 2
+
+while ( k*k*f(k)*f(k) < a )
+{
+    k += 1
+}
+
+print k 
+print "\n"
+quit
