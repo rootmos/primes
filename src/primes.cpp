@@ -131,14 +131,14 @@ worker_thread* worker_thread::move_to_end(worker_thread* new_parent)
 }
 
 
-// The worker thread's actuall worker!
+// The worker thread's actual worker!
 
 void worker_thread::worker ()
 {
     container::iterator itr = data->get_iterator();
     number divisor, divisor_limit, remainder;
 
-    while ( data->next_assignment (current, assignment_end) )
+    while ( data->next_assignment (this, current, assignment_end) )
     {
         trace (("%ld: I was assigned: %d to %d\n",
                 (uintptr_t)this, current, assignment_end));
