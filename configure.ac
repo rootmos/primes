@@ -67,10 +67,12 @@ AC_PROG_CXX
 AX_CXX_COMPILE_STDCXX_11
 
 # Checks for libraries
+AX_PTHREAD
+
+LIBS="$PTHREAD_LIBS $LIBS"
+CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
 
 # Checks for header files.
-
-
 
 
 # Checks for typedefs, structures, and compiler characteristics.
