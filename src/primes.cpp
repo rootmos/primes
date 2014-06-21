@@ -82,12 +82,14 @@ inline container::iterator container::get_iterator ()
 
 // The worker thread's constructor
 
-worker_thread::worker_thread (container* d):
-    parent(nullptr),
-    child(nullptr),
+worker_thread::worker_thread (container* d, worker_thread* sibling):
+    next_sibling(nullptr),
+    previous_sibling(sibling),
     data(d),
     thread(&worker_thread::worker, this)
 {
+    if (previous_sibling != nullptr)
+        previous_sibling->next_sibling = this;
 }
 
 // The worker thread's join method
@@ -97,13 +99,40 @@ worker_thread::~worker_thread ()
     thread.join();
 }
 
+
+number worker_thread::update_lowest_assignment()
+{
+    worker_thread* itr = previous_sibling;
+
+    while (itr != nullptr)
+    {
+        if (itr->assignment_end != 0 &&
+            itr->assignment_end < assignment_end)
+            return 0;
+
+        itr = itr->previous_sibling;        
+    }
+
+    itr = next_sibling;
+    while (itr != nullptr)
+    {
+        if (itr->assignment_end != 0 &&
+            itr->assignment_end < assignment_end)
+            return 0;
+
+        itr = itr->next_sibling;        
+    }
+
+    return assignment_end;
+}
+
 // The worker thread's move_to_end method
 
-worker_thread* worker_thread::move_to_end(worker_thread* new_parent)
+/*worker_thread* worker_thread::move_to_end(worker_thread* new_parent)
 {
     if (new_parent == nullptr) // This is the first worker
     {
-        parent = child = nullptr;
+        assert (parent == null); //Then we should be at the head
         return this;
     }
 
@@ -133,7 +162,7 @@ worker_thread* worker_thread::move_to_end(worker_thread* new_parent)
         child = nullptr;
         return nullptr;
     }
-}
+}*/
 
 
 // The worker thread's actual worker!
@@ -209,17 +238,13 @@ bool container::next_assignment (worker_thread* thread,
     // Update the linked list of workers and the lowes_assigned
     // We do this here since we may need to use the value of end 
 
-    worker_thread* new_head = thread->move_to_end (tail);
+    number update = thread->update_lowest_assignment();
 
-    if (new_head != nullptr)
+    if (update)
     {
-        head = new_head;
-        if (end != 0)
-            lowest_completed = end;
+        lowest_completed = update;
         trace (("The new lowest_completed is %d\n", (number)lowest_completed)); 
     }
-
-    tail = thread;
 
     // Perhaps we need to wait for new clean, fresh, primes
     new_clean_primes.wait
@@ -377,7 +402,9 @@ index quicksort_find_pivot_and_skip_top (number pivot, number* start, number* en
     number* i = start;
     while (i <= end)
     {
-        if ( *i != pivot )
+        if ( *i == pivot )
+            break;
+        else
             i++;
     }
     
@@ -389,7 +416,7 @@ index quicksort_find_pivot_and_skip_top (number pivot, number* start, number* en
 
     i = partition (i, start, end);
 
-    // Sort the two partitions
+    // Sort only the bottom partition
     if (start < i - 1 )
         quicksort(start, i-1);
 
@@ -420,10 +447,6 @@ void container::sorter ()
             continue;
         }
 
-        if (to - from > 10)
-            to = from + 10;
-
-
         trace (("Sorting indexes from: %d to: %d. With pivot %d\n",
                 from, to, pivot));
 
@@ -446,7 +469,7 @@ void container::sorter ()
 
         // Output the sorted primes
 
-        for (index i = from; i <= to && i <= TOTAL_PRIMES; i++)
+        for (index i = from; i < clean && i <= TOTAL_PRIMES; i++)
             std::cout << primes[i] << std::endl;
 
     }
@@ -483,7 +506,8 @@ int main()
     worker_thread* workers[THREADS];
 
     for (int i = 0; i < THREADS; i++)
-        workers[i] = new worker_thread (&data);
+        workers[i] = new worker_thread (&data,
+                                        i > 0? workers[i-1] : nullptr);
 
     for (int i = 0; i < THREADS; i++)
         delete workers[i];

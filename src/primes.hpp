@@ -110,8 +110,8 @@ class worker_thread
     
     // The therad's parent and child
     
-    worker_thread* parent;
-    worker_thread* child;
+    worker_thread* next_sibling;
+    worker_thread* previous_sibling;
 
 
     // Connection to the data
@@ -127,9 +127,11 @@ class worker_thread
 
 public:
 
-    worker_thread* move_to_end(worker_thread* new_parent);
+    number update_lowest_assignment();
 
-    worker_thread (container* data);
+    //worker_thread* move_to_end(worker_thread* new_parent);
+
+    worker_thread (container* data, worker_thread* sibling);
     ~worker_thread();
 
 };
