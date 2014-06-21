@@ -41,7 +41,7 @@ AC_DEFINE_UNQUOTED(CHECK_PRIMES, $CHECK_PRIMES,
 
 AC_ARG_VAR(BORED_SORTER, The amount of milliseconds the sorter will sleep)
 if test -z "$BORED_SORTER"; then
-    BORED_SORTER=200
+    BORED_SORTER=2
 fi
 AC_DEFINE_UNQUOTED(BORED_SORTER, $BORED_SORTER,
                    The amount of milliseconds the sorter will sleep)

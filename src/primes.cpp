@@ -40,21 +40,23 @@ inline void container::iterator::reset ()
 
 inline number container::iterator::next ()
 {
-    i++;
-
     // We should be able to stay within our thead's cache
     // Perhaps: make this array grow dynamically?
     assert ( i < CHECK_PRIMES );
 
     if (i < stored)
-        return primes[i];
+    {
+        return primes[i++];
+    }
 
     // We should only need to fetch the next prime
     assert ( i == stored );
 
+    primes[i] = data->get (i);
+    
     stored++;
 
-    return primes[i] = data->get (i);
+    return primes[i++];
 }
 
 
@@ -113,7 +115,10 @@ void worker_thread::worker ()
         {
             itr.reset();
             divisor_limit = std::sqrt (current);
-            remainder = 0;
+            remainder = 1;
+            
+            //trace (("%ld: Testing: %d with divisor limit: %d\n",
+            //        (uintptr_t)this, current, divisor_limit));
 
             // Test digit-sum?
 
@@ -129,8 +134,8 @@ void worker_thread::worker ()
             current += 2; // Of course we skip the even numbers!
         }
 
-        trace (("%ld: I finished checking: %d to %d\n",
-                (uintptr_t)this, current, assignment_end));
+        //trace (("%ld: I finished checking my interval (up to %d)\n",
+        //        (uintptr_t)this, assignment_end));
     }
 
 }
@@ -163,19 +168,21 @@ bool container::next_assignment (number& first, number& end)
     new_clean_primes.wait
         (lock,
          [this]
-            { return std::pow(largest_clean(),2) < largest_assigned;} );
+            { return std::pow(largest_clean(),2) > (largest_assigned + 2);} );
 
     first = largest_assigned + 2;
     assert ( first % 2 == 1 ); // first should be an odd number
 
-    largest_assigned = end = std::pow(largest_clean(),2) / THREADS;
+    end = first + (std::pow(largest_clean(),2) - first) / THREADS;
 
     if (end - first > ASSIGNMENT_MAX) // We should not take to large bites
         end = first + ASSIGNMENT_MAX;
-    else if (end % 2 == 1) // and we want to end at an odd number
+    else if (end % 2 == 0) // and we want to end at an odd number
         end--;
 
-    assert (first < end); // Could the opposite really occur?
+    assert (first <= end);
+
+    largest_assigned = end;
 
     return true;
 }
@@ -193,7 +200,7 @@ inline bool container::are_we_there_yet ()
 
 inline number container::largest_clean ()
 {
-    return primes[clean--];
+    return primes[clean - 1];
 }
 
 
@@ -261,15 +268,15 @@ void quicksort (number* start, number* end)
 
 void container::sorter ()
 {
-    std::unique_lock<std::mutex> lock(assignment_mutex);
+    std::unique_lock<std::mutex> lock(assignment_mutex, std::defer_lock);
     index from, to;
-    while (are_we_there_yet ())
+    while (!are_we_there_yet ())
     {
         from = clean + 1;
-        to = used--;
+        to = used - 1;
 
 
-        if (from == to)
+        if (from > to)
         {
             trace (("The sorter was bored!\n"));
             std::this_thread::sleep_for
@@ -277,6 +284,9 @@ void container::sorter ()
 
             continue;
         }
+
+        if (to - from > 10)
+            to = from + 10;
 
         trace (("Sorting indexes from: %d to: %d\n", from, to));
 
@@ -308,7 +318,7 @@ container::container ():
     sorter_thread (&container::sorter, this)
 {
     // The initial prime!
-    primes[0] = 3;
+    primes[0] = largest_assigned = 3;
     used = clean = 1;
 }
 
