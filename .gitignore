@@ -1,1 +1,13 @@
 primes
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache/
+compile
+config.status
+configure
+install-sh
+missing
+config.h
+config.h.in
+stamp-h1

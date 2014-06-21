@@ -1,0 +1,12 @@
+
+To compile:
+===============================================================================
+
+autoheader
+aclocal
+automake -i --add-missing
+autoconf
+
+./configure
+make
+
