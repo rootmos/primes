@@ -126,44 +126,6 @@ number worker_thread::update_lowest_assignment()
     return assignment_end;
 }
 
-// The worker thread's move_to_end method
-
-/*worker_thread* worker_thread::move_to_end(worker_thread* new_parent)
-{
-    if (new_parent == nullptr) // This is the first worker
-    {
-        assert (parent == null); //Then we should be at the head
-        return this;
-    }
-
-    new_parent->child = this;
-
-    if (parent == nullptr) // We are at the head
-    {
-        parent = new_parent;
-
-        if (child == nullptr) // But also at the end
-            return this;
-
-        worker_thread* new_head = child;
-
-        child = nullptr;
-
-        return new_head; // If not, return the new head
-    }
-    else
-    {
-        // We are not at the head
-        
-        if ( child != nullptr ) // We are in the middle
-            parent->child = child;
-        
-        parent = new_parent;
-        child = nullptr;
-        return nullptr;
-    }
-}*/
-
 
 // The worker thread's actual worker!
 
@@ -256,25 +218,6 @@ bool container::next_assignment (worker_thread* thread,
     first = largest_assigned + 2;
     assert ( first % 2 == 1 ); // first should be an odd number
   
-        
-    /*
-    if (head != thread) // A worker in the middle finished
-    {
-        if ( tail != thread )
-            thread->move_to_end (tail);
-    }
-    else if(head == thread) // The head finished its assignment
-    {
-        head = thread->move_to_end(tail);
-    }
-    else if (head == nullptr) // This is the first assignment handed out
-    {
-        head = thread;
-        lowest_assigned = first;
-    }
-    
-    tail = thread; */
-
     // Calculate the end of the assignment
     end = first + (std::pow(largest_clean(),2) - first) / THREADS;
 

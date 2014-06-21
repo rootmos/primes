@@ -129,8 +129,6 @@ public:
 
     number update_lowest_assignment();
 
-    //worker_thread* move_to_end(worker_thread* new_parent);
-
     worker_thread (container* data, worker_thread* sibling);
     ~worker_thread();
 
