@@ -197,6 +197,66 @@ inline number container::largest_clean ()
 }
 
 
+
+
+// Quicksort
+
+void quicksort (number* start, number* end)
+{
+    if (start == end) // A list of length 1 is always sorted
+        return;
+    else if (end == start + 1) // A list of length 2 is easy to sort
+    {
+        if ( *start > *end )
+            std::swap(*start, *end);
+
+        return;
+    }
+
+    // Let's choose the middle element as pivot
+    size_t pivot_index = (end-start)/2;
+
+    std::swap(start[pivot_index], *end);
+
+    number* i = start;
+    number* j;
+
+    while (i < end)
+    {
+        // Find the first value larger than the pivot
+        while (i < end && *i <= *end) // Remember: *end is our pivot value
+            i++;
+
+        if (i == end)
+            break;
+
+        // Let's look for a smaller value to swap with
+
+        j = i + 1;
+
+        while (j < end && *j >= *end)
+            j++;
+
+        if (j == end)
+        {
+            //We couldn't find a smaller pivot, i.e. the parititon is done
+            std::swap(*i, *end);
+            break;
+        }
+        else
+        {
+            // Found a smaller element than pivor, i.e. we swap!
+            std::swap(*i, *j);
+        }
+    }
+
+    // Sort the two partitions
+    quicksort(start, i-1);
+    quicksort(i+1, end);
+}
+
+
+
 // The sorter thread's poor sorter
 
 void container::sorter ()
@@ -256,3 +316,5 @@ int main()
 
     return 0;
 }
+
+
