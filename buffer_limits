@@ -2,20 +2,30 @@
 
 define f(n)
 {
-    return n*( l(n) - l(l(n)) ) 
+    return n*(l(n) - l(l(n)))
 }
 
 n = 2000000
 
-a = n*f(n)
+a = f(n)
+
+print "The "
+print n
+print "th prime is smaller than "
+print a
+print "\n"
+
+
 
 k = 2
 
-while ( k*k*f(k)*f(k) < a )
+while ( f(k)*f(k) < a )
 {
     k += 1
 }
 
+print "and we only need the first "
 print k 
+print " prime-factors"
 print "\n"
 quit
