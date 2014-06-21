@@ -101,32 +101,37 @@ worker_thread::~worker_thread ()
 
 worker_thread* worker_thread::move_to_end(worker_thread* new_parent)
 {
-    if (child == nullptr) // This means that we already are the last
+    if (new_parent == nullptr) // This is the first worker
     {
-        assert (new_parent == this);
-        return nullptr;
+        parent = child = nullptr;
+        return this;
     }
 
-    assert (new_parent != nullptr); // We don't like to be passed nullptr!
-    assert (new_parent->child == nullptr); // We should be added at the end
-
     new_parent->child = this;
-    
-    if (parent != nullptr)
+
+    if (parent == nullptr) // We are at the head
     {
-        // If we have a parent we just remove ourselves from the chain
-        parent->child = child;
+        parent = new_parent;
+
+        if (child == nullptr) // But also at the end
+            return this;
+
+        worker_thread* new_head = child;
+
         child = nullptr;
-        return nullptr;
+
+        return new_head; // If not, return the new head
     }
     else
     {
-        // We are the first thread, so we return our child which becomes
-        // the new first thread
+        // We are not at the head
         
-        worker_thread* retptr = child;
+        if ( child != nullptr ) // We are in the middle
+            parent->child = child;
+        
+        parent = new_parent;
         child = nullptr;
-        return retptr;
+        return nullptr;
     }
 }
 
@@ -180,7 +185,7 @@ void worker_thread::worker ()
 
 void container::report_prime (number prime)
 {
-    trace (("Found prime: %d\n", prime));
+    trace (("Found prime! %d: %d\n", (index)used, prime));
     std::lock_guard<std::mutex> lock (report_prime_mutex);
 
     primes[used] = prime;
@@ -200,6 +205,21 @@ bool container::next_assignment (worker_thread* thread,
 
     if (are_we_there_yet())
         return false;
+    
+    // Update the linked list of workers and the lowes_assigned
+    // We do this here since we may need to use the value of end 
+
+    worker_thread* new_head = thread->move_to_end (tail);
+
+    if (new_head != nullptr)
+    {
+        head = new_head;
+        if (end != 0)
+            lowest_completed = end;
+        trace (("The new lowest_completed is %d\n", (number)lowest_completed)); 
+    }
+
+    tail = thread;
 
     // Perhaps we need to wait for new clean, fresh, primes
     new_clean_primes.wait
@@ -211,14 +231,16 @@ bool container::next_assignment (worker_thread* thread,
     first = largest_assigned + 2;
     assert ( first % 2 == 1 ); // first should be an odd number
   
-    // Update the linked list of workers and the lowes_assigned
-    // We do this here since we may need to use the value of end 
+        
+    /*
     if (head != thread) // A worker in the middle finished
-        thread->move_to_end (tail);
+    {
+        if ( tail != thread )
+            thread->move_to_end (tail);
+    }
     else if(head == thread) // The head finished its assignment
     {
         head = thread->move_to_end(tail);
-        lowest_assigned = end + 2;
     }
     else if (head == nullptr) // This is the first assignment handed out
     {
@@ -226,7 +248,7 @@ bool container::next_assignment (worker_thread* thread,
         lowest_assigned = first;
     }
     
-    tail = thread;
+    tail = thread; */
 
     // Calculate the end of the assignment
     end = first + (std::pow(largest_clean(),2) - first) / THREADS;
@@ -341,7 +363,15 @@ index quicksort_find_pivot_and_skip_top (number pivot, number* start, number* en
         if ( *start > *end )
             std::swap(*start, *end);
 
-        return 2;
+        if ( *start == pivot )
+            return 1;
+        if ( *end == pivot )
+            return 2;
+        else
+        {
+            assert ( 0 && "Couldn't find pivot in sort" );
+            return 0;
+        }
     }
 
     number* i = start;
@@ -376,11 +406,12 @@ void container::sorter ()
     index from, to;
     while (!are_we_there_yet ())
     {
-        from = clean + 1;
+        from = clean;
         to = used - 1;
 
+        number pivot = lowest_completed;
 
-        if (from > to)
+        if (from > to || pivot <= primes[clean-1])
         {
             trace (("The sorter was bored!\n"));
             std::this_thread::sleep_for
@@ -392,10 +423,13 @@ void container::sorter ()
         if (to - from > 10)
             to = from + 10;
 
-        trace (("Sorting indexes from: %d to: %d\n", from, to));
+
+        trace (("Sorting indexes from: %d to: %d. With pivot %d\n",
+                from, to, pivot));
+
 
         index new_clean = 
-            quicksort_find_pivot_and_skip_top (lowest_assigned - 2,
+            quicksort_find_pivot_and_skip_top (pivot,
                                                &primes[from],
                                                &primes[to]);
 
@@ -423,10 +457,12 @@ void container::sorter ()
 
 container::container ():
     head(nullptr),
+    tail(nullptr),
     sorter_thread (&container::sorter, this)
 {
     // The initial prime!
     primes[0] = largest_assigned = 3;
+    lowest_completed = 3;
     used = clean = 1;
 }
 

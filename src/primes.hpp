@@ -43,7 +43,7 @@ class container
     // The start of the linked list of worker_threads
     worker_thread* head;
     worker_thread* tail;
-    atomic_index lowest_assigned;
+    atomic_index lowest_completed;
 
     // The sorter thread's thread and worker
 
