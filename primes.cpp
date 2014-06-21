@@ -168,7 +168,10 @@ bool container::next_assignment (number& first, number& end)
     assert ( first % 2 == 1 ); // first should be an odd number
 
     largest_assigned = end = std::pow(largest_clean(),2) / THREADS;
-    if (end % 2 == 1)
+
+    if (end - first > ASSIGNMENT_MAX) // We should not take to large bites
+        end = first + ASSIGNMENT_MAX;
+    else if (end % 2 == 1) // and we want to end at an odd number
         end--;
 
     assert (first < end); // Could the opposite really occur?

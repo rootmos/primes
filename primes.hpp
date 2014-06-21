@@ -9,6 +9,7 @@
 #define BUFFER_SIZE 120
 #define CHECK_PRIMES 10     //Roughly: sqrt of TOTAL_PRIMES
 #define BORED_SORTER 200
+#define ASSIGNMENT_MAX 10
 
 // Includes
 
