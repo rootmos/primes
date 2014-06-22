@@ -53,6 +53,12 @@ fi
 AC_DEFINE_UNQUOTED(ASSIGNMENT_MAX, $ASSIGNMENT_MAX,
                    The maximum assignment length)
 
+AC_ARG_VAR(THREADED_SORT_LENGTH, The shortest part to sort in own thread)
+if test -z "$THREADED_SORT_LENGTH"; then
+    THREADED_SORT_LENGTH=10
+fi
+AC_DEFINE_UNQUOTED(THREADED_SORT_LENGTH, $THREADED_SORT_LENGTH,
+                   The shortest part to sort in own thread)
 
 # The debug option
 AC_HEADER_ASSERT

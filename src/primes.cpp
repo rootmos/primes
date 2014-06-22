@@ -319,10 +319,35 @@ void quicksort (number* start, number* end)
     number* i = partition (&start[pivot_index], start, end);
 
     // Sort the two partitions
+    std::thread* left = nullptr;
+    std::thread* right = nullptr;
     if (start < i - 1 )
-        quicksort(start, i-1);
+    {
+        if ( start - i + 1 > THREADED_SORT_LENGTH )
+            left = new std::thread (quicksort, start, i-1);
+        else
+            quicksort(start, i-1);
+    }
     if ( i+1 <= end )
-        quicksort(i+1, end);
+    {
+        if ( i + 1 - end > THREADED_SORT_LENGTH )
+            right = new std::thread (quicksort, i+1, end);
+        else
+            quicksort(i+1, end);
+    }
+
+    if ( left != nullptr )
+    {
+        left->join();
+        delete left;
+    }
+
+    if (right != nullptr )
+    {
+        right->join();
+        delete right;
+    }
+
 }
 
 index quicksort_find_pivot_and_skip_top (number pivot, number* start, number* end)
