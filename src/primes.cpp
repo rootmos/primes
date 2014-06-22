@@ -367,7 +367,7 @@ index quicksort_find_pivot_and_skip_top (number pivot, number* start, number* en
     if (chosen == nullptr)
         return 0;
 
-    i = partition (chosen, start, end);
+    chosen = partition (chosen, start, end);
 
     // Sort only the bottom partition
     if (start < chosen - 1 )
