@@ -176,7 +176,7 @@ void worker_thread::worker ()
 
 void container::report_prime (number prime)
 {
-    trace (("Found prime! %d: %d\n", (index)used, prime));
+    //trace (("Found prime! %d: %d\n", (index)used, prime));
     std::lock_guard<std::mutex> lock (report_prime_mutex);
 
     primes[used] = prime;
@@ -343,27 +343,33 @@ index quicksort_find_pivot_and_skip_top (number pivot, number* start, number* en
     }
 
     number* i = start;
+    number* chosen = nullptr;
     while (i <= end)
     {
         if ( *i == pivot )
+        {
+            chosen = i;
             break;
-        else
-            i++;
-    }
-    
-    if ( i > end )
-    {
-        assert ( 0 && "Couldn't find pivot in sort" );
-        return 0;
+        }
+        else if ( *i < pivot )
+        {
+            if (chosen == nullptr || *chosen < *i)
+                chosen = i;
+        }
+        
+        i++;
     }
 
-    i = partition (i, start, end);
+    if (chosen == nullptr)
+        return 0;
+
+    i = partition (chosen, start, end);
 
     // Sort only the bottom partition
-    if (start < i - 1 )
-        quicksort(start, i-1);
+    if (start < chosen - 1 )
+        quicksort(start, chosen-1);
 
-    return (i - start);
+    return (chosen - start) + 1;
 }
 
 
@@ -393,7 +399,6 @@ void container::sorter ()
         trace (("Sorting indexes from: %d to: %d. With pivot %d\n",
                 from, to, pivot));
 
-
         index new_clean = 
             quicksort_find_pivot_and_skip_top (pivot,
                                                &primes[from],
@@ -411,9 +416,11 @@ void container::sorter ()
         lock.unlock();
 
         // Output the sorted primes
+        
+        trace (("Outputing new %d clean between: %d and %d\n", new_clean, from, (index)clean));
 
         for (index i = from; i < clean && i <= TOTAL_PRIMES; i++)
-            std::cout << primes[i] << std::endl;
+            std::cout <<  i << ":" << primes[i] << std::endl;
 
     }
 }
