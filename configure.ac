@@ -60,6 +60,13 @@ fi
 AC_DEFINE_UNQUOTED(THREADED_SORT_LENGTH, $THREADED_SORT_LENGTH,
                    The shortest part to sort in own thread)
 
+AC_ARG_VAR(ASSIGNMENT_END, The largest number to test)
+if test -z "$ASSIGNMENT_END"; then
+    ASSIGNMENT_END=10
+fi
+AC_DEFINE_UNQUOTED(ASSIGNMENT_END, $ASSIGNMENT_END,
+                   The largest number to test)
+
 # The debug option
 AC_HEADER_ASSERT
 AC_HEADER_TRACES

@@ -225,9 +225,13 @@ bool container::next_assignment (worker_thread* thread,
     // Calculate the end of the assignment
     end = first + (std::pow(largest_clean(),2) - first) / THREADS;
 
-    if (end - first > ASSIGNMENT_MAX) // We should not take to large bites
+    if ( end - first > ASSIGNMENT_MAX ) // We should not take to large bites
         end = first + ASSIGNMENT_MAX;
-    else if (end % 2 == 0) // and we want to end at an odd number
+
+    if ( end > ASSIGNMENT_END ) // We should stop when we get there!
+        end = ASSIGNMENT_END;
+
+    if (end % 2 == 0) // and we want to end at an odd number
         end--;
 
     assert (first <= end);
