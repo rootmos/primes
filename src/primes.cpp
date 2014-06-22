@@ -167,6 +167,8 @@ void worker_thread::worker ()
 
         //trace (("%ld: I finished checking my interval (up to %d)\n",
         //        (uintptr_t)this, assignment_end));
+        
+        std::this_thread::yield();
     }
 
 }
@@ -201,6 +203,8 @@ bool container::next_assignment (worker_thread* thread,
     // We do this here since we may need to use the value of end 
 
     number update = thread->update_lowest_assignment();
+    
+    end = 0; //Set this to zero so that other threads know we have finished
 
     if (update)
     {
@@ -387,11 +391,12 @@ void container::sorter ()
 
         number pivot = lowest_completed;
 
-        if (from > to || pivot <= primes[clean-1])
+        if (from >= to || pivot <= primes[clean-1])
         {
             trace (("The sorter was bored!\n"));
+            std::this_thread::yield();
             std::this_thread::sleep_for
-                (std::chrono::milliseconds (BORED_SORTER));
+               (std::chrono::milliseconds (BORED_SORTER));
 
             continue;
         }
