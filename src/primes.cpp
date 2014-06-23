@@ -4,12 +4,14 @@
 #include <cmath>
 #include <chrono>
 
+// For traces and cheat
+#include <stdio.h>
+
 #include "primes.hpp"
 #include "config.h"
 
 
 #ifndef NTRACES
-#include <stdio.h>
 #define trace(vars) printf vars
 #else
 #define trace(vars)
@@ -479,6 +481,32 @@ container::~container()
 {
     sorter_thread.join();
 }
+
+
+#ifndef NTESTING
+// Read the cheat-file for comparison
+
+number cheat[TOTAL_PRIMES];
+
+void read_cheat ()
+{
+    FILE* file = fopen ("cheat", "r"); 
+
+    for (index i = 0; i < TOTAL_PRIMES; i++)
+    {
+
+        // fscanf!
+
+    }
+
+
+
+    fclose (file);
+
+
+}
+
+#endif
 
 
 // The main main function
