@@ -17,6 +17,36 @@
 #define trace(vars)
 #endif
 
+#ifndef NTESTING
+// Read the cheat-file for comparison
+number cheat[TOTAL_PRIMES] = { 0 };
+
+void read_cheat ()
+{
+    FILE* file = fopen ("cheat", "r"); 
+
+    assert (file != nullptr);
+
+    for (index i = 0; i < TOTAL_PRIMES+1; i++)
+        assert ( fscanf (file, "%d", &cheat[i]) == 1 );
+
+    fclose (file);
+}
+
+bool test (index i, number prime)
+{
+    if ( cheat[i] == 0 )
+        read_cheat ();
+
+    return prime == cheat[i];
+}
+
+#else
+
+#define test (i, prime) 
+
+#endif
+
 
 
 // Worker thread's iterator constructor
@@ -88,7 +118,8 @@ worker_thread::worker_thread (container* d, worker_thread* sibling):
     next_sibling(nullptr),
     previous_sibling(sibling),
     data(d),
-    thread(&worker_thread::worker, this)
+    thread(&worker_thread::worker, this),
+    is_active(true)
 {
     if (previous_sibling != nullptr)
         previous_sibling->next_sibling = this;
@@ -96,21 +127,29 @@ worker_thread::worker_thread (container* d, worker_thread* sibling):
 
 // The worker thread's join method
 
-worker_thread::~worker_thread ()
+void worker_thread::join ()
 {
     thread.join();
 }
 
 
-number worker_thread::update_lowest_assignment()
+number worker_thread::lowest_completed()
 {
     worker_thread* itr = previous_sibling;
+    
+
+    bool is_somebody_still_working = false;
+
+    number lowest = assignment_end;
 
     while (itr != nullptr)
     {
-        if (itr->assignment_end != 0 &&
-            itr->assignment_end < assignment_end)
-            return 0;
+        if ( itr->is_active )
+        {
+            is_somebody_still_working = true;
+            if (itr->current - 2 < lowest)
+                lowest = itr->current - 2;
+        }
 
         itr = itr->previous_sibling;        
     }
@@ -118,14 +157,20 @@ number worker_thread::update_lowest_assignment()
     itr = next_sibling;
     while (itr != nullptr)
     {
-        if (itr->assignment_end != 0 &&
-            itr->assignment_end < assignment_end)
-            return 0;
+        if ( itr->is_active )
+        {
+            is_somebody_still_working = true;
+            if (itr->current - 2 < lowest)
+                lowest = itr->current - 2;
+        }
 
-        itr = itr->next_sibling;        
+        itr = itr->next_sibling;
     }
 
-    return assignment_end;
+    if (!is_somebody_still_working)
+        return ASSIGNMENT_END;
+
+    return lowest;
 }
 
 
@@ -136,10 +181,10 @@ void worker_thread::worker ()
     container::iterator itr = data->get_iterator();
     number divisor, divisor_limit, remainder;
 
-    while ( data->next_assignment (this, current, assignment_end) )
+    while ( (is_active = data->next_assignment (this, current, assignment_end)) )
     {
         trace (("%ld: I was assigned: %d to %d\n",
-                (uintptr_t)this, current, assignment_end));
+                (uintptr_t)this, (number)current, assignment_end));
 
         // Ensure that we actually start with an odd number
         assert( current % 2 == 1 );
@@ -147,7 +192,7 @@ void worker_thread::worker ()
         while ( current <= assignment_end )
         {
             itr.reset();
-            divisor_limit = std::sqrt (current);
+            divisor_limit = std::sqrt ( (number)current);
             remainder = 1;
             
             //trace (("%ld: Testing: %d with divisor limit: %d\n",
@@ -194,25 +239,24 @@ void container::report_prime (number prime)
 // The container's next_assignment
 
 bool container::next_assignment (worker_thread* thread,
-                                 number& first, number& end)
+                                 atomic_number& first, number& end)
 {
     std::unique_lock<std::mutex> lock(assignment_mutex);
 
-    if (are_we_there_yet())
-        return false;
     
     // Update the linked list of workers and the lowes_assigned
     // We do this here since we may need to use the value of end 
 
-    number update = thread->update_lowest_assignment();
+    lowest_completed = thread->lowest_completed();
     
-    end = 0; //Set this to zero so that other threads know we have finished
+    trace (("The new lowest_completed is %d\n", (number)lowest_completed)); 
+    
+    // The assignment should end at an odd number!
+    assert (ASSIGNMENT_END % 2 == 1); 
 
-    if (update)
-    {
-        lowest_completed = update;
-        trace (("The new lowest_completed is %d\n", (number)lowest_completed)); 
-    }
+    if (largest_assigned >= ASSIGNMENT_END)
+        return false;
+
 
     // Perhaps we need to wait for new clean, fresh, primes
     new_clean_primes.wait
@@ -306,17 +350,17 @@ number* partition (number* pivot, number* start, number* end)
 }
 
 
-void quicksort (number* start, number* end)
+index quicksort (number* start, number* end)
 {
     assert (start <= end);
     if (start == end) // A list of length 1 is always sorted
-        return;
+        return 1;
     else if (end == start + 1) // A list of length 2 is easy to sort
     {
         if ( *start > *end )
             std::swap(*start, *end);
 
-        return;
+        return 2;
     }
 
     // Let's choose the middle element as pivot
@@ -354,6 +398,7 @@ void quicksort (number* start, number* end)
         delete right;
     }
 
+    return ( end - start ) + 1;
 }
 
 index quicksort_find_pivot_and_skip_top (number pivot, number* start, number* end)
@@ -415,7 +460,7 @@ void container::sorter ()
 {
     std::unique_lock<std::mutex> lock(assignment_mutex, std::defer_lock);
     index from, to;
-    while (!are_we_there_yet ())
+    while (lowest_completed < ASSIGNMENT_END)
     {
         from = clean;
         to = used - 1;
@@ -453,12 +498,31 @@ void container::sorter ()
 
         // Output the sorted primes
         
-        trace (("Outputing new %d clean between: %d and %d\n", new_clean, from, (index)clean));
+        trace (("Outputing new %d clean between: %d and %d\n",
+                new_clean, from, (index)clean));
 
-        for (index i = from; i < clean && i <= TOTAL_PRIMES; i++)
+        for (index i = from; i < clean && i < TOTAL_PRIMES; i++)
+        {
             std::cout <<  i << ":" << primes[i] << std::endl;
-
+            assert ( test (i+1, primes[i]) );
+        }
     }
+
+    // Lastly we sort the bottom part as well
+
+    from = clean;
+    to = used - 1;
+    index new_clean =  quicksort (&primes[from], &primes[to]);
+    clean += new_clean;
+    
+    trace (("Outputing last %d clean between: %d and %d\n",
+                new_clean, from, (index)clean));
+    for (index i = from; i < clean && i < TOTAL_PRIMES; i++)
+    {
+        std::cout <<  i << ":" << primes[i] << " " << cheat[i+1] << std::endl;
+        assert ( test (i+1, primes[i]) );
+    }
+
 }
 
 
@@ -483,30 +547,6 @@ container::~container()
 }
 
 
-#ifndef NTESTING
-// Read the cheat-file for comparison
-
-number cheat[TOTAL_PRIMES];
-
-void read_cheat ()
-{
-    FILE* file = fopen ("cheat", "r"); 
-
-    for (index i = 0; i < TOTAL_PRIMES; i++)
-    {
-
-        // fscanf!
-
-    }
-
-
-
-    fclose (file);
-
-
-}
-
-#endif
 
 
 // The main main function
@@ -520,6 +560,9 @@ int main()
     for (int i = 0; i < THREADS; i++)
         workers[i] = new worker_thread (&data,
                                         i > 0? workers[i-1] : nullptr);
+    
+    for (int i = 0; i < THREADS; i++)
+        workers[i]->join ();
 
     for (int i = 0; i < THREADS; i++)
         delete workers[i];

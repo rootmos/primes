@@ -22,7 +22,7 @@ AC_DEFINE_UNQUOTED(THREADS, $THREADS, Number of worker threads)
 
 AC_ARG_VAR(TOTAL_PRIMES, The number of primes to find)
 if test -z "$TOTAL_PRIMES"; then
-    TOTAL_PRIMES=100
+    TOTAL_PRIMES=99
 fi
 AC_DEFINE_UNQUOTED(TOTAL_PRIMES, $TOTAL_PRIMES, The number of primes to find)
 
@@ -62,7 +62,7 @@ AC_DEFINE_UNQUOTED(THREADED_SORT_LENGTH, $THREADED_SORT_LENGTH,
 
 AC_ARG_VAR(ASSIGNMENT_END, The largest number to test)
 if test -z "$ASSIGNMENT_END"; then
-    ASSIGNMENT_END=10
+    ASSIGNMENT_END=615
 fi
 AC_DEFINE_UNQUOTED(ASSIGNMENT_END, $ASSIGNMENT_END,
                    The largest number to test)

@@ -13,6 +13,7 @@
 // Type of the numbers and indexes, unnecessary?
 
 using number = unsigned int;
+using atomic_number = std::atomic<number>;
 
 using index = unsigned int;
 using atomic_index = std::atomic<index>;
@@ -56,7 +57,7 @@ public:
     ~container();
 
     bool next_assignment (worker_thread* thread,
-                          number& first,
+                          atomic_number& first,
                           number& end);
 
     void report_prime (number prime);
@@ -104,7 +105,7 @@ class worker_thread
 
     // Current assignment
 
-    number current;
+    atomic_number current;
     number assignment_end;
 
     
@@ -121,16 +122,21 @@ class worker_thread
     // The thread
     std::thread thread;
 
+    // Is the thread active?
+    
+    bool is_active;
+
+
     // The poor method who actually has to work!
 
     void worker();
 
 public:
 
-    number update_lowest_assignment();
+    number lowest_completed();
 
     worker_thread (container* data, worker_thread* sibling);
-    ~worker_thread();
+    void join ();
 
 };
 
