@@ -118,18 +118,26 @@ worker_thread::worker_thread (container* d, worker_thread* sibling):
     next_sibling(nullptr),
     previous_sibling(sibling),
     data(d),
-    thread(&worker_thread::worker, this),
+    thread(nullptr),
     is_active(true)
 {
     if (previous_sibling != nullptr)
         previous_sibling->next_sibling = this;
 }
 
+// The worker thread's start method
+
+void worker_thread::start ()
+{
+    thread = new std::thread (&worker_thread::worker, this);
+}
+
 // The worker thread's join method
 
 void worker_thread::join ()
 {
-    thread.join();
+    thread->join();
+    delete thread;
 }
 
 
@@ -560,6 +568,9 @@ int main()
     for (int i = 0; i < THREADS; i++)
         workers[i] = new worker_thread (&data,
                                         i > 0? workers[i-1] : nullptr);
+    
+    for (int i = 0; i < THREADS; i++)
+        workers[i]->start ();
     
     for (int i = 0; i < THREADS; i++)
         workers[i]->join ();

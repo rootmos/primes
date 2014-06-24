@@ -120,7 +120,7 @@ class worker_thread
     container* data;
 
     // The thread
-    std::thread thread;
+    std::thread* thread;
 
     // Is the thread active?
     
@@ -136,6 +136,8 @@ public:
     number lowest_completed();
 
     worker_thread (container* data, worker_thread* sibling);
+
+    void start ();
     void join ();
 
 };
