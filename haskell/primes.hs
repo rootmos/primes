@@ -22,4 +22,18 @@ joinT ((x:xs):t) = x : (union xs . joinT . pairs) t  -- ~= nub.sort.concat
 gaps k s@(x:xs) | k<x  = k:gaps (k+2) s    -- ~= [k,k+2..]\\s, when
                 | True =   gaps (k+2) xs   --   k<=x && null(s\\[k,k+2..])
 
-main = mapM_ print $ take 2000000 primesTME
+
+-- Another one
+
+primesTMWE = [2,3,5,7] ++ _Y ((11:) . tail  . gapsW 11 wheel 
+                                    . joinT . hitsW 11 wheel)
+ 
+gapsW k (d:w) s@(c:cs) | k < c     = k : gapsW (k+d) w s
+                       | otherwise =     gapsW (k+d) w cs      -- k==c
+hitsW k (d:w) s@(p:ps) | k < p     =     hitsW (k+d) w s
+                       | otherwise = scanl (\c d->c+p*d) (p*p) (d:w) 
+                                       : hitsW (k+d) w ps      -- k==p 
+wheel = 2:4:2:4:6:2:6:4:2:4:6:6:2:6:4:2:6:4:6:8:4:2:4:2:
+        4:8:6:4:6:2:4:6:2:6:6:4:2:4:6:2:6:4:2:4:2:10:2:10:wheel
+
+main = mapM_ print $ take 2000000 primesTMWE
