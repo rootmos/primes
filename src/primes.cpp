@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <chrono>
+#include <mutex>
 
 #include <cstring>
 
@@ -58,7 +59,7 @@ bool test (uint i, uint prime)
 
 uint factors[factor_length];
 
-#define chunk_length 10000
+#define chunk_length 2000000
 
 inline void fill (bool* odds, uint i)
 {
@@ -105,7 +106,7 @@ inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
         i /= 2;
     }
     
-    trace (("Filling i=%d for p=%d with offset=%d.\n", i, p, offset));
+    //trace (("Filling i=%d for p=%d with offset=%d.\n", i, p, offset));
     
 
     while (i < length)
@@ -115,13 +116,17 @@ inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
     }
 }
 
+static std::mutex output_lock;
+
 void output (bool* odds, uint offset, uint length)
 {
+    output_lock.lock();
     for (uint i = 0; i < length; i++)
     {
         if (!odds[i])
            std::cout << offset + 2*i << std::endl;
     }
+    output_lock.unlock();
 }
 
 
@@ -139,6 +144,8 @@ void offset_sieve (bool* chunk, uint from, uint to)
 
     output (chunk, from, length); 
 
+    std::this_thread::yield ();
+
     if ( to - from  > 2*chunk_length )
     {
         for (uint j = 0; j < chunk_length; j++ )
@@ -148,11 +155,13 @@ void offset_sieve (bool* chunk, uint from, uint to)
     }
 }
 
-void offset_sieve (uint from, uint to)
+void worker (uint from, uint to)
 {
+    trace (("I was assigned %d to %d.\n", from, to));
     bool chunk[chunk_length] = { false };
 
     offset_sieve (chunk, from, to);
+    trace (("I finished %d to %d.\n", from, to));
 }
 
 // The main main function
@@ -179,8 +188,27 @@ int main()
         itr++;
     }
 
-    offset_sieve ( factors[i-1]+2, 32452845 );
-    
+    std::thread* workers[THREADS];
+
+    uint from = factors[i-1]+2;
+    uint to = 32452845;
+    uint end;
+    uint assignment_length = (to - from)/THREADS + 1;
+
+    for (int j = 0; j < THREADS; j++)
+    {
+        if (j+1 == THREADS)
+            end = to;
+        else
+            end = from + assignment_length;
+        
+        workers[j] = new std::thread (&worker, from, end);
+        from += assignment_length;
+    }
+   
+    for (int j = 0; j < THREADS; j++)
+        workers[j]->join();
+
     return 0;
 }
 
