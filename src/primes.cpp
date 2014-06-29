@@ -89,19 +89,27 @@ void sieve (bool* odds)
 inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
 {
     assert (offset % 2 == 1);
+    uint i;
+    if ( offset % p == 0)
+        i = 0;
+    else
+    {
+        float k = float(offset) / float(p);
+        i = offset / p + 1; //ceil (k);
 
-    uint i = ceil (float(offset) / float(p));
+        if ( i % 2 == 0 )
+            i += 1;
 
-    if ( i % 2 == 0 )
-        i += 1;
+        i = i*p - offset;
 
-    i = i*p - offset;
-    i /= 2;
+        i /= 2;
+    }
+    
+    trace (("Filling i=%d for p=%d with offset=%d.\n", i, p, offset));
     
 
     while (i < length)
     {
-        //trace (("Filling i=%d for p=%d with offset=%d.\n", i, p, offset));
         chunk[i] = true;
         i += p; 
     }
