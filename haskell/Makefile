@@ -1,3 +1,3 @@
 
 primes: primes.hs
-	ghc primes.hs
+	ghc -O2 primes.hs
