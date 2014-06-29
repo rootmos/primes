@@ -15,8 +15,6 @@
 using number = unsigned int;
 using atomic_number = std::atomic<number>;
 
-using index = unsigned int;
-using atomic_index = std::atomic<index>;
 
 // Forward decl, move worker_thread to own set of files?
 

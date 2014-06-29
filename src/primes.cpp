@@ -4,12 +4,14 @@
 #include <cmath>
 #include <chrono>
 
+#include <cstring>
+
 // For traces and cheat
 #include <stdio.h>
 
-#include "primes.hpp"
 #include "config.h"
 
+using uint = unsigned int;
 
 #ifndef NTRACES
 #define trace(vars) printf vars
@@ -19,7 +21,7 @@
 
 #ifndef NTESTING
 // Read the cheat-file for comparison
-number cheat[TOTAL_PRIMES] = { 0 };
+uint cheat[TOTAL_PRIMES] = { 0 };
 
 void read_cheat ()
 {
@@ -27,13 +29,13 @@ void read_cheat ()
 
     assert (file != nullptr);
 
-    for (index i = 0; i < TOTAL_PRIMES+1; i++)
+    for (uint i = 0; i < TOTAL_PRIMES+1; i++)
         assert ( fscanf (file, "%d", &cheat[i]) == 1 );
 
     fclose (file);
 }
 
-bool test (index i, number prime)
+bool test (uint i, uint prime)
 {
     if ( cheat[i] == 0 )
         read_cheat ();
@@ -48,536 +50,129 @@ bool test (index i, number prime)
 #endif
 
 
+// sqrt (32452843) = 5696 > 5695 = 3+2*2846
+#define buffer_length 2847
 
-// Worker thread's iterator constructor
+// 751th prime = 5701, need only 749 since we skip the two
+#define factor_length 749
 
-container::iterator::iterator (container* d):
-    i(0),
-    stored(0),
-    data(d)
+uint factors[factor_length];
+
+#define chunk_length 10000
+
+inline void fill (bool* odds, uint i)
 {
-}
+    uint n = 3 + 2*i;
 
-
-// Worker thread's iterator reset
-
-inline void container::iterator::reset ()
-{
-    this->i = 0;
-}
-
-
-
-// Worker thread's iterator next
-
-inline number container::iterator::next ()
-{
-    // We should be able to stay within our thead's cache
-    // Perhaps: make this array grow dynamically?
-    assert ( i < CHECK_PRIMES );
-
-    if (i < stored)
+    for (uint j = i + n; j < buffer_length; j += n)
     {
-        return primes[i++];
+        odds[j] = true;
     }
-
-    // We should only need to fetch the next prime
-    assert ( i == stored );
-
-    primes[i] = data->get (i);
-    
-    stored++;
-
-    return primes[i++];
 }
 
-
-// The container's get function
-
-inline number container::get (index i)
+void sieve (bool* odds)
 {
-    // We should only try to retrieve clean read-only data
-    assert(i < clean);
+    uint i = 0;
 
-    return primes[i];
-}
-
-
-// The container's get_iterator function
-
-inline container::iterator container::get_iterator ()
-{
-    return iterator(this);
-}
-
-
-
-// The worker thread's constructor
-
-worker_thread::worker_thread (container* d, worker_thread* sibling):
-    next_sibling(nullptr),
-    previous_sibling(sibling),
-    data(d),
-    thread(nullptr),
-    is_active(true)
-{
-    if (previous_sibling != nullptr)
-        previous_sibling->next_sibling = this;
-}
-
-// The worker thread's start method
-
-void worker_thread::start ()
-{
-    thread = new std::thread (&worker_thread::worker, this);
-}
-
-// The worker thread's join method
-
-void worker_thread::join ()
-{
-    thread->join();
-    delete thread;
-}
-
-
-number worker_thread::lowest_completed()
-{
-    worker_thread* itr = previous_sibling;
-    
-
-    bool is_somebody_still_working = false;
-
-    number lowest = assignment_end;
-
-    while (itr != nullptr)
+    while (i < buffer_length)
     {
-        if ( itr->is_active )
-        {
-            is_somebody_still_working = true;
-            if (itr->current - 2 < lowest)
-                lowest = itr->current - 2;
-        }
-
-        itr = itr->previous_sibling;        
-    }
-
-    itr = next_sibling;
-    while (itr != nullptr)
-    {
-        if ( itr->is_active )
-        {
-            is_somebody_still_working = true;
-            if (itr->current - 2 < lowest)
-                lowest = itr->current - 2;
-        }
-
-        itr = itr->next_sibling;
-    }
-
-    if (!is_somebody_still_working)
-        return ASSIGNMENT_END;
-
-    return lowest;
-}
-
-
-// The worker thread's actual worker!
-
-void worker_thread::worker ()
-{
-    container::iterator itr = data->get_iterator();
-    number divisor, divisor_limit, remainder;
-
-    while ( (is_active = data->next_assignment (this, current, assignment_end)) )
-    {
-        trace (("%ld: I was assigned: %d to %d\n",
-                (uintptr_t)this, (number)current, assignment_end));
-
-        // Ensure that we actually start with an odd number
-        assert( current % 2 == 1 );
-
-        while ( current <= assignment_end )
-        {
-            itr.reset();
-            divisor_limit = std::sqrt ( (number)current);
-            remainder = 1;
-            
-            //trace (("%ld: Testing: %d with divisor limit: %d\n",
-            //        (uintptr_t)this, current, divisor_limit));
-
-            // Test digit-sum?
-
-            while ( (divisor = itr.next()) <= divisor_limit )
-            {
-                remainder = current % divisor;
-                if (remainder == 0)
-                    break;
-            }
-            if (remainder != 0)
-                data->report_prime (current);
-
-            current += 2; // Of course we skip the even numbers!
-        }
-
-        //trace (("%ld: I finished checking my interval (up to %d)\n",
-        //        (uintptr_t)this, assignment_end));
+        fill (odds, i);
         
-        std::this_thread::yield();
+        while (odds[++i])
+        {
+        }
+
+        trace (("Found prime %d at %d.\n", 3+2*i, i)); 
     }
-
 }
 
-
-// The container's report_prime method
-
-void container::report_prime (number prime)
+inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
 {
-    //trace (("Found prime! %d: %d\n", (index)used, prime));
-    std::lock_guard<std::mutex> lock (report_prime_mutex);
+    assert (offset % 2 == 1);
 
-    primes[used] = prime;
+    uint i = ceil (float(offset) / float(p));
 
-    used++;
+    if ( i % 2 == 0 )
+        i += 1;
 
-    assert (used < BUFFER_SIZE); // What should we do when this fails?
-}
-
-
-// The container's next_assignment
-
-bool container::next_assignment (worker_thread* thread,
-                                 atomic_number& first, number& end)
-{
-    std::unique_lock<std::mutex> lock(assignment_mutex);
-
+    i = i*p - offset;
+    i /= 2;
     
-    // Update the linked list of workers and the lowes_assigned
-    // We do this here since we may need to use the value of end 
 
-    lowest_completed = thread->lowest_completed();
-    
-    trace (("The new lowest_completed is %d\n", (number)lowest_completed)); 
-    
-    // The assignment should end at an odd number!
-    assert (ASSIGNMENT_END % 2 == 1); 
-
-    if (largest_assigned >= ASSIGNMENT_END)
-        return false;
-
-
-    // Perhaps we need to wait for new clean, fresh, primes
-    new_clean_primes.wait
-        (lock,
-         [this]
-            { return std::pow(largest_clean(),2) > (largest_assigned + 2);} );
-
-    // Calculate the first number of the new assignment
-    first = largest_assigned + 2;
-    assert ( first % 2 == 1 ); // first should be an odd number
-  
-    // Calculate the end of the assignment
-    end = first + (std::pow(largest_clean(),2) - first) / THREADS;
-
-    if ( end - first > ASSIGNMENT_MAX ) // We should not take to large bites
-        end = first + ASSIGNMENT_MAX;
-
-    if ( end > ASSIGNMENT_END ) // We should stop when we get there!
-        end = ASSIGNMENT_END;
-
-    if (end % 2 == 0) // and we want to end at an odd number
-        end--;
-
-    assert (first <= end);
-
-    // Update the largest handed out
-    largest_assigned = end;
-
-    return true;
+    while (i < length)
+    {
+        //trace (("Filling i=%d for p=%d with offset=%d.\n", i, p, offset));
+        chunk[i] = true;
+        i += p; 
+    }
 }
 
-
-// The container's nagging child
-
-inline bool container::are_we_there_yet ()
+void output (bool* odds, uint offset, uint length)
 {
-    return (clean >= TOTAL_PRIMES);
+    for (uint i = 0; i < length; i++)
+    {
+        if (!odds[i])
+           std::cout << offset + 2*i << std::endl;
+    }
 }
 
 
-// The container's largest prime getter
-
-inline number container::largest_clean ()
+void offset_sieve (bool* chunk, uint from, uint to)
 {
-    return primes[clean - 1];
+    uint length = to - from;
+    length = (length > 2*chunk_length ? chunk_length : length/2);
+
+    trace (("Sieving from %d to %d.\n", from, from+2*length));
+
+    for (uint i = 0; i < factor_length; i++)
+    {
+        fill_offset (chunk, factors[i], from, length);
+    }
+
+    output (chunk, from, length); 
+
+    if ( to - from  > 2*chunk_length )
+    {
+        for (uint j = 0; j < chunk_length; j++ )
+            chunk[j] = false;
+        //memset (chunk, 0, chunk_length);
+        offset_sieve (chunk, from + 2*length, to);
+    }
 }
 
-
-
-
-// Quicksort
-
-
-number* partition (number* pivot, number* start, number* end)
+void offset_sieve (uint from, uint to)
 {
-    std::swap(*pivot, *end);
+    bool chunk[chunk_length] = { false };
 
-    number* i = start;
-    number* j;
-
-    while (i < end)
-    {
-        // Find the first value larger than the pivot
-        while (i < end && *i <= *end) // Remember: *end is our pivot value
-            i++;
-
-        if (i == end)
-            break;
-
-        // Let's look for a smaller value to swap with
-
-        j = i + 1;
-
-        while (j < end && *j >= *end)
-            j++;
-
-        if (j == end)
-        {
-            //We couldn't find a smaller pivot, i.e. the parititon is done
-            std::swap(*i, *end);
-            break;
-        }
-        else
-        {
-            // Found a smaller element than pivor, i.e. we swap!
-            std::swap(*i, *j);
-        }
-    }
-
-    return i;
+    offset_sieve (chunk, from, to);
 }
-
-
-index quicksort (number* start, number* end)
-{
-    assert (start <= end);
-    if (start == end) // A list of length 1 is always sorted
-        return 1;
-    else if (end == start + 1) // A list of length 2 is easy to sort
-    {
-        if ( *start > *end )
-            std::swap(*start, *end);
-
-        return 2;
-    }
-
-    // Let's choose the middle element as pivot
-    size_t pivot_index = (end-start)/2;
-
-    number* i = partition (&start[pivot_index], start, end);
-
-    // Sort the two partitions
-    std::thread* left = nullptr;
-    std::thread* right = nullptr;
-    if (start < i - 1 )
-    {
-        if ( start - i + 1 > THREADED_SORT_LENGTH )
-            left = new std::thread (quicksort, start, i-1);
-        else
-            quicksort(start, i-1);
-    }
-    if ( i+1 <= end )
-    {
-        if ( i + 1 - end > THREADED_SORT_LENGTH )
-            right = new std::thread (quicksort, i+1, end);
-        else
-            quicksort(i+1, end);
-    }
-
-    if ( left != nullptr )
-    {
-        left->join();
-        delete left;
-    }
-
-    if (right != nullptr )
-    {
-        right->join();
-        delete right;
-    }
-
-    return ( end - start ) + 1;
-}
-
-index quicksort_find_pivot_and_skip_top (number pivot, number* start, number* end)
-{
-    assert (start <= end);
-    if (start == end) // A list of length 1 is always sorted
-        return 1;
-    else if (end == start + 1) // A list of length 2 is easy to sort
-    {
-        if ( *start > *end )
-            std::swap(*start, *end);
-
-        if ( *start == pivot )
-            return 1;
-        if ( *end == pivot )
-            return 2;
-        else
-        {
-            assert ( 0 && "Couldn't find pivot in sort" );
-            return 0;
-        }
-    }
-
-    number* i = start;
-    number* chosen = nullptr;
-    while (i <= end)
-    {
-        if ( *i == pivot )
-        {
-            chosen = i;
-            break;
-        }
-        else if ( *i < pivot )
-        {
-            if (chosen == nullptr || *chosen < *i)
-                chosen = i;
-        }
-        
-        i++;
-    }
-
-    if (chosen == nullptr)
-        return 0;
-
-    chosen = partition (chosen, start, end);
-
-    // Sort only the bottom partition
-    if (start < chosen - 1 )
-        quicksort(start, chosen-1);
-
-    return (chosen - start) + 1;
-}
-
-
-
-// The sorter thread's poor sorter
-
-void container::sorter ()
-{
-    std::unique_lock<std::mutex> lock(assignment_mutex, std::defer_lock);
-    index from, to;
-    while (lowest_completed < ASSIGNMENT_END)
-    {
-        from = clean;
-        to = used - 1;
-
-        number pivot = lowest_completed;
-
-        if (from >= to || pivot <= primes[clean-1])
-        {
-            trace (("The sorter was bored!\n"));
-            std::this_thread::yield();
-            std::this_thread::sleep_for
-               (std::chrono::milliseconds (BORED_SORTER));
-
-            continue;
-        }
-
-        trace (("Sorting indexes from: %d to: %d. With pivot %d\n",
-                from, to, pivot));
-
-        index new_clean = 
-            quicksort_find_pivot_and_skip_top (pivot,
-                                               &primes[from],
-                                               &primes[to]);
-
-        trace (("Done sorting indexes from: %d to: %d\n", from, to));
-
-        // Update the number of clean primes and signal waiting threads
-
-        lock.lock();
-
-        clean += new_clean;
-
-        new_clean_primes.notify_all();
-        lock.unlock();
-
-        // Output the sorted primes
-        
-        trace (("Outputing new %d clean between: %d and %d\n",
-                new_clean, from, (index)clean));
-
-        for (index i = from; i < clean && i < TOTAL_PRIMES; i++)
-        {
-            std::cout <<  i << ":" << primes[i] << std::endl;
-            assert ( test (i+1, primes[i]) );
-        }
-    }
-
-    // Lastly we sort the bottom part as well
-
-    from = clean;
-    to = used - 1;
-    index new_clean =  quicksort (&primes[from], &primes[to]);
-    clean += new_clean;
-    
-    trace (("Outputing last %d clean between: %d and %d\n",
-                new_clean, from, (index)clean));
-    for (index i = from; i < clean && i < TOTAL_PRIMES; i++)
-    {
-        std::cout <<  i << ":" << primes[i] << " " << cheat[i+1] << std::endl;
-        assert ( test (i+1, primes[i]) );
-    }
-
-}
-
-
-// The container's constructor
-
-container::container ():
-    head(nullptr),
-    tail(nullptr),
-    sorter_thread (&container::sorter, this)
-{
-    // The initial prime!
-    primes[0] = largest_assigned = 3;
-    lowest_completed = 3;
-    used = clean = 1;
-}
-
-// The container's destructor
-
-container::~container()
-{
-    sorter_thread.join();
-}
-
-
-
 
 // The main main function
 
 int main()
 {
-    container data;
+    std::cout << 2 << std::endl;
 
-    worker_thread* workers[THREADS];
+    bool odds[buffer_length] = { false };
+    sieve (odds);
 
-    for (int i = 0; i < THREADS; i++)
-        workers[i] = new worker_thread (&data,
-                                        i > 0? workers[i-1] : nullptr);
+    uint i = 0;
+    bool* itr = odds;
+    for (i = 0; i < factor_length; i++)
+    {
+        while(*itr)
+        {
+            itr++;
+            if (itr >= odds + buffer_length)
+                break;
+        }
+        factors[i] = 3 + 2*(itr-odds);
+        std::cout << factors[i] << std::endl;
+        itr++;
+    }
+
+    offset_sieve ( factors[i-1]+2, 32452845 );
     
-    for (int i = 0; i < THREADS; i++)
-        workers[i]->start ();
-    
-    for (int i = 0; i < THREADS; i++)
-        workers[i]->join ();
-
-    for (int i = 0; i < THREADS; i++)
-        delete workers[i];
-
     return 0;
 }
 
