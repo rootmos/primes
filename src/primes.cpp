@@ -4,12 +4,10 @@
 #include <cmath>
 #include <chrono>
 #include <mutex>
-
 #include <cstring>
 
 // For traces and cheat
 #include <stdio.h>
-
 #include "config.h"
 
 using uint = unsigned int;
