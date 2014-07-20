@@ -5,6 +5,7 @@
 #include <chrono>
 #include <mutex>
 #include <cstring>
+#include <time.h>
 
 // For traces and cheat
 #include <stdio.h>
@@ -48,6 +49,34 @@ bool test (uint i, uint prime)
 
 #endif
 
+class time_block
+{
+    static std::mutex cerr_lock;
+    const clockid_t clock = CLOCK_PROCESS_CPUTIME_ID;
+    const long res = 100000;
+    timespec start;
+    const char* message;
+public:
+
+    time_block (const char* m) : message (m)
+    {
+        clock_gettime (clock, &start);
+    };
+
+    ~time_block ()
+    {
+        timespec end;
+        clock_gettime (clock, &end);
+        long ns_elapsed = (end.tv_sec - start.tv_sec)*1000000000 
+            + (end.tv_nsec - start.tv_nsec);
+        cerr_lock.lock ();
+        std::cerr << message << ": " << ns_elapsed/res << std::endl;
+        cerr_lock.unlock ();
+    };
+};
+
+std::mutex time_block::cerr_lock;
+#define time_function() time_block t(__FUNCTION__);
 
 // sqrt (32452843) = 5696 > 5695 = 3+2*2846
 #define buffer_length 2847
@@ -71,6 +100,7 @@ inline void fill (bool* odds, uint i)
 
 void sieve (bool* odds)
 {
+    time_function ();
     uint i = 0;
 
     while (i < buffer_length)
@@ -116,8 +146,9 @@ inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
 
 static std::mutex output_lock;
 
-void output (bool* odds, uint offset, uint length)
+inline void output (bool* odds, uint offset, uint length)
 {
+    return;
     output_lock.lock();
     for (uint i = 0; i < length; i++)
     {
@@ -130,6 +161,7 @@ void output (bool* odds, uint offset, uint length)
 
 void offset_sieve (bool* chunk, uint from, uint to)
 {
+    time_function ();
     uint length = to - from;
     length = (length > 2*chunk_length ? chunk_length : length/2);
 
@@ -166,13 +198,25 @@ void worker (uint from, uint to)
 
 int main()
 {
-    std::cout << 2 << std::endl;
+    // TODO: output 2 somewhere more convenient, i.e. when we open the file for
+    // writing?
+    // std::cout << 2 << std::endl;
+    
+
+    time_function ();
 
     bool odds[buffer_length] = { false };
     sieve (odds);
 
+    // Output the first factors we've found
+
+    output (odds, 3, factor_length);
+
+    // Generate the factors we are going to need
+
     uint i = 0;
     bool* itr = odds;
+    
     for (i = 0; i < factor_length; i++)
     {
         while(*itr)
@@ -182,7 +226,6 @@ int main()
                 break;
         }
         factors[i] = 3 + 2*(itr-odds);
-        std::cout << factors[i] << std::endl;
         itr++;
     }
 
