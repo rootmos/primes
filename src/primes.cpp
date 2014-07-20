@@ -173,7 +173,7 @@ struct chunk
 
 
 
-class queue
+class chunk_queue
 {
     std::priority_queue<chunk> queue;
 
@@ -208,6 +208,62 @@ public:
 
 };
 
+struct output_chunk
+{
+    char *buffer;
+    int length;
+};
+
+template<typename T>
+class blocking_queue
+{
+    std::queue<T> queue;
+
+    std::mutex mutex;
+    std::condition_variable flag;
+
+public:
+
+    void push (T t)
+    {
+        mutex.lock ();
+        queue.push (t);
+        mutex.unlock ();
+
+        flag.notify_all ();
+    };
+
+    T pop ()
+    {
+        std::unique_lock<std::mutex> lock (mutex);
+
+        flag.wait (lock, [this] { return !queue.empty (); });
+
+        T t = queue.top ();
+        queue.pop ();
+        return t;
+    };
+};
+
+
+blocking_queue<output_chunk> output_queue;
+
+void prepare_chunk (const chunk& c, uint*& primes, uint& number)
+{
+    //TODO: can we make this smaller? E.g. by estimating using the factors?
+    primes = new uint[c.length];
+
+    number = 0;
+    bool* itr = c.data;
+    bool* end = c.data + c.length;
+    while ( itr < end )
+    {
+        if (!*itr)
+            primes [number++] = itr - c.data + c.offset;
+
+        itr++;
+    }
+}
 
 
 
