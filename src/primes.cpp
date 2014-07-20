@@ -6,6 +6,8 @@
 #include <mutex>
 #include <cstring>
 #include <time.h>
+#include <queue>
+#include <condition_variable>
 
 // For traces and cheat
 #include <stdio.h>
@@ -25,7 +27,7 @@ uint cheat[TOTAL_PRIMES] = { 0 };
 
 void read_cheat ()
 {
-    FILE* file = fopen ("cheat", "r"); 
+    FILE* file = fopen ("cheat", "r");
 
     assert (file != nullptr);
 
@@ -45,7 +47,7 @@ bool test (uint i, uint prime)
 
 #else
 
-#define test (i, prime) 
+#define test (i, prime)
 
 #endif
 
@@ -67,7 +69,7 @@ public:
     {
         timespec end;
         clock_gettime (clock, &end);
-        long ns_elapsed = (end.tv_sec - start.tv_sec)*1000000000 
+        long ns_elapsed = (end.tv_sec - start.tv_sec)*1000000000
             + (end.tv_nsec - start.tv_nsec);
         cerr_lock.lock ();
         std::cerr << message << ": " << ns_elapsed/res << std::endl;
@@ -106,12 +108,12 @@ void sieve (bool* odds)
     while (i < buffer_length)
     {
         fill (odds, i);
-        
+
         while (odds[++i])
         {
         }
 
-        trace (("Found prime %d at %d.\n", 3+2*i, i)); 
+        trace (("Found prime %d at %d.\n", 3+2*i, i));
     }
 }
 
@@ -123,7 +125,6 @@ inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
         i = 0;
     else
     {
-        float k = float(offset) / float(p);
         i = offset / p + 1; //ceil (k);
 
         if ( i % 2 == 0 )
@@ -133,14 +134,14 @@ inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
 
         i /= 2;
     }
-    
+
     //trace (("Filling i=%d for p=%d with offset=%d.\n", i, p, offset));
-    
+
 
     while (i < length)
     {
         chunk[i] = true;
-        i += p; 
+        i += p;
     }
 }
 
@@ -158,6 +159,57 @@ inline void output (bool* odds, uint offset, uint length)
     output_lock.unlock();
 }
 
+struct chunk
+{
+    bool* data;
+    uint offset;
+    uint length;
+
+    inline bool operator<(const chunk& rhs)
+    {
+        return (offset < rhs.offset);
+    };
+};
+
+
+
+class queue
+{
+    std::priority_queue<chunk> queue;
+
+    std::mutex mutex;
+    std::condition_variable flag;
+
+    uint next = 3;
+
+public:
+
+    void push (chunk c)
+    {
+        mutex.lock ();
+        queue.push (c);
+        mutex.unlock ();
+
+        flag.notify_all ();
+    };
+
+    chunk pop ()
+    {
+        std::unique_lock<std::mutex> lock (mutex);
+
+        flag.wait (lock, [this] { return (queue.top().offset == next); });
+
+        const chunk& c = queue.top ();
+        queue.pop ();
+        next = c.offset + c.length + 2;
+
+        return c;
+    };
+
+};
+
+
+
 
 void offset_sieve (bool* chunk, uint from, uint to)
 {
@@ -172,7 +224,7 @@ void offset_sieve (bool* chunk, uint from, uint to)
         fill_offset (chunk, factors[i], from, length);
     }
 
-    output (chunk, from, length); 
+    output (chunk, from, length);
 
     std::this_thread::yield ();
 
@@ -188,7 +240,7 @@ void offset_sieve (bool* chunk, uint from, uint to)
 void worker (uint from, uint to)
 {
     trace (("I was assigned %d to %d.\n", from, to));
-    bool chunk[chunk_length] = { false };
+    bool* chunk = new bool[chunk_length];
 
     offset_sieve (chunk, from, to);
     trace (("I finished %d to %d.\n", from, to));
@@ -201,7 +253,7 @@ int main()
     // TODO: output 2 somewhere more convenient, i.e. when we open the file for
     // writing?
     // std::cout << 2 << std::endl;
-    
+
 
     time_function ();
 
@@ -216,7 +268,7 @@ int main()
 
     uint i = 0;
     bool* itr = odds;
-    
+
     for (i = 0; i < factor_length; i++)
     {
         while(*itr)
@@ -242,11 +294,11 @@ int main()
             end = to;
         else
             end = from + assignment_length;
-        
+
         workers[j] = new std::thread (&worker, from, end);
         from += assignment_length;
     }
-   
+
     for (int j = 0; j < THREADS; j++)
         workers[j]->join();
 
