@@ -79,7 +79,8 @@ public:
 };
 
 std::mutex time_block::cerr_lock;
-#define time_function() time_block t(__FUNCTION__);
+
+#define time_function() //time_block t(__FUNCTION__);
 
 // sqrt (32452843) = 5696 > 5695 = 3+2*2846
 #define buffer_length 2847
@@ -114,7 +115,7 @@ void sieve (bool* odds)
         {
         }
 
-        trace (("Found prime %d at %d.\n", 3+2*i, i));
+        // trace (("Found prime %d at %d.\n", 3+2*i, i));
     }
 }
 
@@ -146,19 +147,6 @@ inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
     }
 }
 
-static std::mutex output_lock;
-
-inline void output (bool* odds, uint offset, uint length)
-{
-    return;
-    output_lock.lock();
-    for (uint i = 0; i < length; i++)
-    {
-        if (!odds[i])
-           std::cout << offset + 2*i << std::endl;
-    }
-    output_lock.unlock();
-}
 
 struct chunk
 {
@@ -166,117 +154,127 @@ struct chunk
     uint offset;
     uint length;
 
-    inline bool operator<(const chunk& rhs) const
-    {
-        return (offset < rhs.offset);
+        inline bool operator<(const chunk& rhs) const
+        {
+            return (offset < rhs.offset);
+        };
     };
-};
 
 
 
-class chunk_queue
-{
-    std::priority_queue<chunk> queue;
 
-    std::mutex mutex;
-    std::condition_variable flag;
-
-    uint next = 3;
-
-public:
-
-    void push (chunk c)
+    class chunk_queue
     {
-        mutex.lock ();
+        std::priority_queue<chunk> queue;
+
+        std::mutex mutex;
+        std::condition_variable flag;
+
+        uint next = 3;
+
+    public:
+
+        void push (chunk c)
+        {
+            mutex.lock ();
+            queue.push (c);
+            flag.notify_all ();
+            mutex.unlock ();
+        };
+
+        chunk pop ()
+        {
+            std::unique_lock<std::mutex> lock (mutex);
+
+            flag.wait (lock, [this] { return (!queue.empty() && queue.top().offset != next); });
+
+            const chunk& c = queue.top ();
+            queue.pop ();
+            next = c.offset + 2*c.length + 2;
+
+            trace (("Next chunk to be split starts with %d.\n", next));
+
+            return c;
+        };
+
+    };
+
+    struct output_chunk
+    {
+        char *buffer;
+        int length;
+    };
+
+    template<typename T>
+    class blocking_queue
+    {
+        std::queue<T> queue;
+
+        std::mutex mutex;
+        std::condition_variable flag;
+
+    public:
+
+        void push (T t)
+        {
+            mutex.lock ();
+            queue.push (t);
+            flag.notify_all ();
+            mutex.unlock ();
+        };
+
+        T pop ()
+        {
+            std::unique_lock<std::mutex> lock (mutex);
+
+            flag.wait (lock, [this] { return !queue.empty (); });
+
+            T t = queue.front ();
+            queue.pop ();
+            return t;
+        };
+    };
+
+    static chunk_queue queue;
+    static blocking_queue<output_chunk> output_queue;
+
+    inline void output (bool* odds, uint offset, uint length)
+    {
+        chunk c;
+        c.data = odds;
+        c.offset = offset;
+        c.length = length;
         queue.push (c);
-        mutex.unlock ();
-
-        flag.notify_all ();
-    };
-
-    chunk pop ()
-    {
-        std::unique_lock<std::mutex> lock (mutex);
-
-        flag.wait (lock, [this] { return (!queue.empty() && queue.top().offset == next); });
-
-        const chunk& c = queue.top ();
-        queue.pop ();
-        next = c.offset + c.length + 2;
-
-        return c;
-    };
-
-};
-
-struct output_chunk
-{
-    char *buffer;
-    int length;
-};
-
-template<typename T>
-class blocking_queue
-{
-    std::queue<T> queue;
-
-    std::mutex mutex;
-    std::condition_variable flag;
-
-public:
-
-    void push (T t)
-    {
-        mutex.lock ();
-        queue.push (t);
-        mutex.unlock ();
-
-        flag.notify_all ();
-    };
-
-    T pop ()
-    {
-        std::unique_lock<std::mutex> lock (mutex);
-
-        flag.wait (lock, [this] { return !queue.empty (); });
-
-        T t = queue.front ();
-        queue.pop ();
-        return t;
-    };
-};
-
-chunk_queue queue;
-blocking_queue<output_chunk> output_queue;
-
-// TODO: estimate this at program start
-size_t max_digits = 100;
-uint find_number_of_primes = 2000000;
-#define OUTPUT_CHUNK_LENGTH 1000
-
-std::atomic_bool running(true);
-
-
-inline uint
-naive_uint_to_str_reversed_and_walk (char*& buffer, uint n)
-{
-    if (n == 0)
-    {
-        buffer--; // We have reached the end, so we step back to the last digit.
-        return 0;
     }
 
-    uint m = n%10;
-    buffer[0] = m + 48;
+    // TODO: estimate this at program start
+    size_t max_digits = 100;
+    uint find_number_of_primes = 2000000;
+#define OUTPUT_CHUNK_LENGTH 1000
 
-    return 1 + naive_uint_to_str_reversed_and_walk(++buffer, (n-m)/10);    
-} 
+    static std::atomic_bool running(true);
 
-inline void
-write_reversed_into_buffer_and_walk (char*& to, char* from, uint length)
-{
-    to[0] = from[0];
-    if (--length > 0)
+
+    inline uint
+    naive_uint_to_str_reversed_and_walk (char*& buffer, uint n)
+    {
+        if (n == 0)
+        {
+            buffer--; // We have reached the end, so we step back to the last digit.
+            return 0;
+        }
+
+        uint m = n%10;
+        buffer[0] = m + 48;
+
+        return 1 + naive_uint_to_str_reversed_and_walk(++buffer, (n-m)/10);    
+    } 
+
+    inline void
+    write_reversed_into_buffer_and_walk (char*& to, char* from, uint length)
+    {
+        to[0] = from[0];
+        if (--length > 0)
         write_reversed_into_buffer_and_walk (++to, --from, length);    
 } 
 
@@ -295,40 +293,34 @@ void split_chunks_into_output_chunks ()
 
         oc.buffer = new char[OUTPUT_CHUNK_LENGTH+1];
         char* output_itr = oc.buffer;
-        size_t unused = OUTPUT_CHUNK_LENGTH;
+        uint used = 0;
 
         bool* sieve_itr = c.data;
         bool* end = c.data + c.length;
-        while ( sieve_itr < end )
+        while ( sieve_itr <= end )
         {
-            if (!*sieve_itr)
+            if (!(*sieve_itr))
             {
                 number_of_primes++;
 
                 uint prime = 2*(sieve_itr - c.data) + c.offset;
-                trace (("Writing prime number %d=%d to output_chunk ",
-                        number_of_primes,
-                        prime));
                 uint digits = naive_uint_to_str_reversed_and_walk (itr, prime); 
-                trace (("and it has %d digits.", digits));
 
-                trace ((" Reversed buffer=[%s].", buffer));
-
-                if (digits + 1 > unused)
+                if (digits + 1 + used > OUTPUT_CHUNK_LENGTH)
                 {
                     oc.length = output_itr-oc.buffer;
                     output_queue.push (oc);
 
                     oc.buffer = new char[OUTPUT_CHUNK_LENGTH+1];
                     output_itr = oc.buffer;
+                    used = 0;
                 }
                 
                 write_reversed_into_buffer_and_walk (output_itr, itr, digits);
-                trace ((" Written numbers=[%s].\n", output_itr - digits + 1));
                 output_itr++;
                 output_itr[0] = '\n';
                 output_itr++;
-                unused -= digits + 1;
+                used += digits + 1;
                 itr = buffer;
             }
 
@@ -350,14 +342,20 @@ void split_chunks_into_output_chunks ()
 
 void output_worker ()
 {
-    std::cout << 2 << std::endl;
+    FILE* file = fopen ("output", "w");
+
+    assert (file != nullptr);
+
+    fwrite ("2\n", 2, sizeof (char), file); 
 
     while (running)
     {
         output_chunk oc = output_queue.pop ();
-        
-        std::cout << oc.buffer << std::endl;
+
+        fwrite (oc.buffer, oc.length, sizeof (char), file);
     }
+
+    fclose (file);
 }
 
 
@@ -393,6 +391,7 @@ void worker (uint from, uint to)
     bool* chunk = new bool[chunk_length];
 
     offset_sieve (chunk, from, to);
+
     trace (("I finished %d to %d.\n", from, to));
 }
 
@@ -408,26 +407,13 @@ int main()
     bool odds[buffer_length] = { false };
     sieve (odds);
 
-    chunk c;
-    c.data = odds;
-    c.length = buffer_length;
-    c.offset = 3;
-    queue.push (c);
-
-    split_thread.join();
-    output_thread.join ();
-
-    return 0;
-
     // Output the first factors we've found
-
-    output (odds, 3, factor_length);
+    output (odds, 3, buffer_length);
 
     // Generate the factors we are going to need
 
     uint i = 0;
     bool* itr = odds;
-    c
     for (i = 0; i < factor_length; i++)
     {
         while(*itr)
@@ -442,10 +428,13 @@ int main()
 
     std::thread* workers[THREADS];
 
-    uint from = factors[i-1]+2;
+    uint from = 3+buffer_length*2 + 2;//[buffer_length-1]+2;
     uint to = 32452845;
     uint end;
     uint assignment_length = (to - from)/THREADS + 1;
+    
+    if (assignment_length % 2 == 1)
+        assignment_length++;
 
     for (int j = 0; j < THREADS; j++)
     {
@@ -460,6 +449,9 @@ int main()
 
     for (int j = 0; j < THREADS; j++)
         workers[j]->join();
+    
+    split_thread.join();
+    output_thread.join ();
 
     return 0;
 }
