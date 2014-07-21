@@ -8,6 +8,7 @@
 #include <time.h>
 #include <queue>
 #include <condition_variable>
+#include <atomic>
 
 // For traces and cheat
 #include <stdio.h>
@@ -165,7 +166,7 @@ struct chunk
     uint offset;
     uint length;
 
-    inline bool operator<(const chunk& rhs)
+    inline bool operator<(const chunk& rhs) const
     {
         return (offset < rhs.offset);
     };
@@ -245,27 +246,96 @@ public:
     };
 };
 
-
+chunk_queue queue;
 blocking_queue<output_chunk> output_queue;
 
-void prepare_chunk (const chunk& c, uint*& primes, uint& number)
+// TODO: estimate this at program start
+size_t max_digits = 100;
+uint find_number_of_primes = 2000000;
+#define OUTPUT_CHUNK_LENGTH 1000
+
+std::atomic_bool running(true);
+
+
+inline uint
+naive_uint_to_str_reversed_and_walk (char*& buffer, uint n)
 {
-    //TODO: can we make this smaller? E.g. by estimating using the factors?
-    primes = new uint[c.length];
-
-    number = 0;
-    bool* itr = c.data;
-    bool* end = c.data + c.length;
-    while ( itr < end )
+    if (n == 0)
     {
-        if (!*itr)
-            primes [number++] = itr - c.data + c.offset;
-
-        itr++;
+        buffer--; // We have reached the end, so we step back to the last digit.
+        return 0;
     }
+
+    uint m = n%10;
+    buffer[0] = m + 48;
+
+    return 1 + naive_uint_to_str_reversed_and_walk(++buffer, (n-m)/10);    
+} 
+
+inline void
+write_reversed_into_buffer_and_walk (char*& to, char* from, uint length)
+{
+    *to = *from;
+    if (--length > 0)
+        write_reversed_into_buffer_and_walk (++to, --from, length);    
+} 
+
+
+// The thread for splitting chunks into newline separated output chunks. We
+// also count the number of primes here.
+void split_chunks_into_output_chunks ()
+{
+    uint number_of_primes = 1;
+    char* buffer = new char[max_digits]; 
+    char* itr = buffer;
+    while (running)
+    {
+        chunk c = queue.pop ();
+        output_chunk oc;
+
+        oc.buffer = new char[OUTPUT_CHUNK_LENGTH+1];
+        char* output_itr = oc.buffer;
+        size_t unused = OUTPUT_CHUNK_LENGTH;
+
+        bool* sieve_itr = c.data;
+        bool* end = c.data + c.length;
+        while ( sieve_itr < end )
+        {
+            if (!*itr)
+            {
+                number_of_primes++;
+
+                uint prime = sieve_itr - c.data + c.offset;
+                uint digits = naive_uint_to_str_reversed_and_walk (itr, prime); 
+
+                if (digits + 1 < unused)
+                {
+                    oc.length = output_itr-oc.buffer;
+                    output_queue.push (oc);
+
+                    oc.buffer = new char[OUTPUT_CHUNK_LENGTH+1];
+                    output_itr = oc.buffer;
+                }
+                
+                write_reversed_into_buffer_and_walk (output_itr, itr, digits);
+                *(++output_itr) = '\n';
+                unused -= digits + 1;
+            }
+
+            if (number_of_primes > find_number_of_primes)
+            {
+                running = false;
+                break;
+            }
+
+            itr++;
+        }
+
+        oc.length = output_itr-oc.buffer;
+        output_queue.push (oc);
+    }
+
 }
-
-
 
 void offset_sieve (bool* chunk, uint from, uint to)
 {
@@ -309,7 +379,6 @@ int main()
     // TODO: output 2 somewhere more convenient, i.e. when we open the file for
     // writing?
     // std::cout << 2 << std::endl;
-
 
     time_function ();
 
