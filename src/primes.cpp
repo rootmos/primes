@@ -198,7 +198,7 @@ public:
     {
         std::unique_lock<std::mutex> lock (mutex);
 
-        flag.wait (lock, [this] { return (queue.top().offset == next); });
+        flag.wait (lock, [this] { return (!queue.empty() && queue.top().offset == next); });
 
         const chunk& c = queue.top ();
         queue.pop ();
@@ -240,7 +240,7 @@ public:
 
         flag.wait (lock, [this] { return !queue.empty (); });
 
-        T t = queue.top ();
+        T t = queue.front ();
         queue.pop ();
         return t;
     };
@@ -275,7 +275,7 @@ naive_uint_to_str_reversed_and_walk (char*& buffer, uint n)
 inline void
 write_reversed_into_buffer_and_walk (char*& to, char* from, uint length)
 {
-    *to = *from;
+    to[0] = from[0];
     if (--length > 0)
         write_reversed_into_buffer_and_walk (++to, --from, length);    
 } 
@@ -301,14 +301,20 @@ void split_chunks_into_output_chunks ()
         bool* end = c.data + c.length;
         while ( sieve_itr < end )
         {
-            if (!*itr)
+            if (!*sieve_itr)
             {
                 number_of_primes++;
 
-                uint prime = sieve_itr - c.data + c.offset;
+                uint prime = 2*(sieve_itr - c.data) + c.offset;
+                trace (("Writing prime number %d=%d to output_chunk ",
+                        number_of_primes,
+                        prime));
                 uint digits = naive_uint_to_str_reversed_and_walk (itr, prime); 
+                trace (("and it has %d digits.", digits));
 
-                if (digits + 1 < unused)
+                trace ((" Reversed buffer=[%s].", buffer));
+
+                if (digits + 1 > unused)
                 {
                     oc.length = output_itr-oc.buffer;
                     output_queue.push (oc);
@@ -318,8 +324,12 @@ void split_chunks_into_output_chunks ()
                 }
                 
                 write_reversed_into_buffer_and_walk (output_itr, itr, digits);
-                *(++output_itr) = '\n';
+                trace ((" Written numbers=[%s].\n", output_itr - digits + 1));
+                output_itr++;
+                output_itr[0] = '\n';
+                output_itr++;
                 unused -= digits + 1;
+                itr = buffer;
             }
 
             if (number_of_primes > find_number_of_primes)
@@ -328,7 +338,7 @@ void split_chunks_into_output_chunks ()
                 break;
             }
 
-            itr++;
+            sieve_itr++;
         }
 
         oc.length = output_itr-oc.buffer;
@@ -336,6 +346,20 @@ void split_chunks_into_output_chunks ()
     }
 
 }
+
+
+void output_worker ()
+{
+    std::cout << 2 << std::endl;
+
+    while (running)
+    {
+        output_chunk oc = output_queue.pop ();
+        
+        std::cout << oc.buffer << std::endl;
+    }
+}
+
 
 void offset_sieve (bool* chunk, uint from, uint to)
 {
@@ -376,14 +400,24 @@ void worker (uint from, uint to)
 
 int main()
 {
-    // TODO: output 2 somewhere more convenient, i.e. when we open the file for
-    // writing?
-    // std::cout << 2 << std::endl;
-
     time_function ();
+
+    std::thread split_thread(split_chunks_into_output_chunks);
+    std::thread output_thread(output_worker);
 
     bool odds[buffer_length] = { false };
     sieve (odds);
+
+    chunk c;
+    c.data = odds;
+    c.length = buffer_length;
+    c.offset = 3;
+    queue.push (c);
+
+    split_thread.join();
+    output_thread.join ();
+
+    return 0;
 
     // Output the first factors we've found
 
@@ -393,7 +427,7 @@ int main()
 
     uint i = 0;
     bool* itr = odds;
-
+    c
     for (i = 0; i < factor_length; i++)
     {
         while(*itr)
