@@ -52,21 +52,21 @@ bool test (uint i, uint prime)
 
 #endif
 
-class time_block
+class time_block_class
 {
     static std::mutex cerr_lock;
-    const clockid_t clock = CLOCK_PROCESS_CPUTIME_ID;
-    const long res = 100000;
+    const clockid_t clock = CLOCK_THREAD_CPUTIME_ID;
+    const long res = 1000;
     timespec start;
     const char* message;
 public:
 
-    time_block (const char* m) : message (m)
+    time_block_class (const char* m) : message (m)
     {
         clock_gettime (clock, &start);
     };
 
-    ~time_block ()
+    ~time_block_class ()
     {
         timespec end;
         clock_gettime (clock, &end);
@@ -78,9 +78,10 @@ public:
     };
 };
 
-std::mutex time_block::cerr_lock;
+std::mutex time_block_class::cerr_lock;
 
-#define time_function() //time_block t(__FUNCTION__);
+#define time_function() time_block_class t(__FUNCTION__);
+#define time_block (m) time_block_class t(m);
 
 // sqrt (32452843) = 5696 > 5695 = 3+2*2846
 #define buffer_length 2847
@@ -90,7 +91,7 @@ std::mutex time_block::cerr_lock;
 
 uint factors[factor_length];
 
-#define chunk_length 2000000
+#define chunk_length 1000000
 
 inline void fill (bool* odds, uint i)
 {
@@ -226,7 +227,7 @@ inline void output (bool* data, uint offset, uint length)
 // TODO: estimate this at program start
 size_t max_digits = 100;
 uint find_number_of_primes = 2000000;
-#define OUTPUT_CHUNK_LENGTH 1000
+#define OUTPUT_CHUNK_LENGTH 2000000
 
 static std::atomic_bool running(true);
 
@@ -259,6 +260,7 @@ write_reversed_into_buffer_and_walk (char*& to, char* from, uint length)
 // also count the number of primes here.
 void split_chunks_into_output_chunks ()
 {
+    time_function ();
     uint number_of_primes = 1;
     char* buffer = new char[max_digits];
     char* itr = buffer;
@@ -318,6 +320,7 @@ void split_chunks_into_output_chunks ()
 
 void output_worker ()
 {
+    time_function ();
     FILE* file = fopen ("output", "w");
 
     assert (file != nullptr);
@@ -366,7 +369,6 @@ inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
 
 void offset_sieve (uint from, uint to)
 {
-    time_function ();
     bool* chunk = new bool[chunk_length];
     uint length = to - from;
     length = (length > 2*chunk_length ? chunk_length : length/2);
@@ -388,6 +390,7 @@ void offset_sieve (uint from, uint to)
 
 void worker (uint from, uint to)
 {
+    time_function ();
     trace (("I was assigned %d to %d.", from, to));
 
     offset_sieve (from, to);
