@@ -17,7 +17,7 @@
 using uint = unsigned int;
 
 #ifndef NTRACES
-#define trace(vars) printf vars
+#define trace(vars) printf("%s:\t", __FUNCTION__); printf vars; printf("\n");
 #else
 #define trace(vars)
 #endif
@@ -115,38 +115,9 @@ void sieve (bool* odds)
         {
         }
 
-        // trace (("Found prime %d at %d.\n", 3+2*i, i));
+        // trace (("Found prime %d at %d.", 3+2*i, i));
     }
 }
-
-inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
-{
-    assert (offset % 2 == 1);
-    uint i;
-    if ( offset % p == 0)
-        i = 0;
-    else
-    {
-        i = offset / p + 1; //ceil (k);
-
-        if ( i % 2 == 0 )
-            i += 1;
-
-        i = i*p - offset;
-
-        i /= 2;
-    }
-
-    //trace (("Filling i=%d for p=%d with offset=%d.\n", i, p, offset));
-
-
-    while (i < length)
-    {
-        chunk[i] = true;
-        i += p;
-    }
-}
-
 
 struct chunk
 {
@@ -154,129 +125,134 @@ struct chunk
     uint offset;
     uint length;
 
-        inline bool operator<(const chunk& rhs) const
-        {
-            return (offset < rhs.offset);
-        };
+    inline bool operator<(const chunk& rhs) const
+    {
+        return (offset < rhs.offset);
+    };
+};
+
+
+
+#include <map>
+class chunk_queue
+{
+
+    std::map<uint, chunk> map;
+
+    std::mutex mutex;
+    std::condition_variable flag;
+
+    uint next = 3;
+
+public:
+
+    void push (chunk c)
+    {
+        mutex.lock ();
+        map.insert (std::make_pair(c.offset, c));
+        trace (("Pushed chunk with offset=%d.", c.offset));
+        flag.notify_all ();
+        mutex.unlock ();
     };
 
-
-
-
-    class chunk_queue
+    chunk pop ()
     {
-        std::priority_queue<chunk> queue;
+        std::unique_lock<std::mutex> lock (mutex);
+        
+        trace (("Trying to get chunk which starts with %d.", next));
 
-        std::mutex mutex;
-        std::condition_variable flag;
+        flag.wait (lock, [this] { return (map.count(next) != 0); });
 
-        uint next = 3;
+        auto search = map.find (next);
+        const chunk& c = search->second;
+        map.erase (next);
+        next = c.offset + 2*c.length;
 
-    public:
+        trace (("Next chunk to be split starts with %d.", next));
 
-        void push (chunk c)
-        {
-            mutex.lock ();
-            queue.push (c);
-            flag.notify_all ();
-            mutex.unlock ();
-        };
-
-        chunk pop ()
-        {
-            std::unique_lock<std::mutex> lock (mutex);
-
-            flag.wait (lock, [this] { return (!queue.empty() && queue.top().offset != next); });
-
-            const chunk& c = queue.top ();
-            queue.pop ();
-            next = c.offset + 2*c.length + 2;
-
-            trace (("Next chunk to be split starts with %d.\n", next));
-
-            return c;
-        };
-
+        return c;
     };
 
-    struct output_chunk
+};
+
+struct output_chunk
+{
+    char *buffer;
+    int length;
+};
+
+template<typename T>
+class blocking_queue
+{
+    std::queue<T> queue;
+
+    std::mutex mutex;
+    std::condition_variable flag;
+
+public:
+
+    void push (T t)
     {
-        char *buffer;
-        int length;
+        mutex.lock ();
+        queue.push (t);
+        flag.notify_all ();
+        mutex.unlock ();
     };
 
-    template<typename T>
-    class blocking_queue
+    T pop ()
     {
-        std::queue<T> queue;
+        std::unique_lock<std::mutex> lock (mutex);
 
-        std::mutex mutex;
-        std::condition_variable flag;
+        flag.wait (lock, [this] { return !queue.empty (); });
 
-    public:
-
-        void push (T t)
-        {
-            mutex.lock ();
-            queue.push (t);
-            flag.notify_all ();
-            mutex.unlock ();
-        };
-
-        T pop ()
-        {
-            std::unique_lock<std::mutex> lock (mutex);
-
-            flag.wait (lock, [this] { return !queue.empty (); });
-
-            T t = queue.front ();
-            queue.pop ();
-            return t;
-        };
+        T t = queue.front ();
+        queue.pop ();
+        return t;
     };
+};
 
-    static chunk_queue queue;
-    static blocking_queue<output_chunk> output_queue;
+static chunk_queue queue;
+static blocking_queue<output_chunk> output_queue;
 
-    inline void output (bool* odds, uint offset, uint length)
-    {
-        chunk c;
-        c.data = odds;
-        c.offset = offset;
-        c.length = length;
-        queue.push (c);
-    }
+inline void output (bool* data, uint offset, uint length)
+{
+    chunk c;
+    c.data = data;
+    c.offset = offset;
+    c.length = length;
+    queue.push (c);
+}
 
-    // TODO: estimate this at program start
-    size_t max_digits = 100;
-    uint find_number_of_primes = 2000000;
+// TODO: estimate this at program start
+size_t max_digits = 100;
+uint find_number_of_primes = 2000000;
 #define OUTPUT_CHUNK_LENGTH 1000
 
-    static std::atomic_bool running(true);
+static std::atomic_bool running(true);
 
 
-    inline uint
-    naive_uint_to_str_reversed_and_walk (char*& buffer, uint n)
+inline uint
+naive_uint_to_str_reversed_and_walk (char*& buffer, uint n)
+{
+    if (n == 0)
     {
-        if (n == 0)
-        {
-            buffer--; // We have reached the end, so we step back to the last digit.
-            return 0;
-        }
+        buffer--; // We have reached the end, so we step back to the last digit.
+        return 0;
+    }
 
-        uint m = n%10;
-        buffer[0] = m + 48;
+    uint m = n%10;
+    buffer[0] = m + 48;
 
-        return 1 + naive_uint_to_str_reversed_and_walk(++buffer, (n-m)/10);    
-    } 
+    return 1 + naive_uint_to_str_reversed_and_walk(++buffer, (n-m)/10);
+}
 
-    inline void
-    write_reversed_into_buffer_and_walk (char*& to, char* from, uint length)
-    {
-        to[0] = from[0];
-        if (--length > 0)
-        write_reversed_into_buffer_and_walk (++to, --from, length);    
-} 
+inline void
+write_reversed_into_buffer_and_walk (char*& to, char* from, uint length)
+{
+    to[0] = from[0];
+    if (--length > 0)
+        write_reversed_into_buffer_and_walk (++to, --from, length);
+}
 
 
 // The thread for splitting chunks into newline separated output chunks. We
@@ -284,7 +260,7 @@ struct chunk
 void split_chunks_into_output_chunks ()
 {
     uint number_of_primes = 1;
-    char* buffer = new char[max_digits]; 
+    char* buffer = new char[max_digits];
     char* itr = buffer;
     while (running)
     {
@@ -297,14 +273,14 @@ void split_chunks_into_output_chunks ()
 
         bool* sieve_itr = c.data;
         bool* end = c.data + c.length;
-        while ( sieve_itr <= end )
+        while ( sieve_itr < end )
         {
             if (!(*sieve_itr))
             {
                 number_of_primes++;
 
                 uint prime = 2*(sieve_itr - c.data) + c.offset;
-                uint digits = naive_uint_to_str_reversed_and_walk (itr, prime); 
+                uint digits = naive_uint_to_str_reversed_and_walk (itr, prime);
 
                 if (digits + 1 + used > OUTPUT_CHUNK_LENGTH)
                 {
@@ -315,7 +291,7 @@ void split_chunks_into_output_chunks ()
                     output_itr = oc.buffer;
                     used = 0;
                 }
-                
+
                 write_reversed_into_buffer_and_walk (output_itr, itr, digits);
                 output_itr++;
                 output_itr[0] = '\n';
@@ -324,7 +300,7 @@ void split_chunks_into_output_chunks ()
                 itr = buffer;
             }
 
-            if (number_of_primes > find_number_of_primes)
+            if (number_of_primes >= find_number_of_primes)
             {
                 running = false;
                 break;
@@ -346,7 +322,7 @@ void output_worker ()
 
     assert (file != nullptr);
 
-    fwrite ("2\n", 2, sizeof (char), file); 
+    fwrite ("2\n", 2, sizeof (char), file);
 
     while (running)
     {
@@ -359,13 +335,43 @@ void output_worker ()
 }
 
 
-void offset_sieve (bool* chunk, uint from, uint to)
+inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
+{
+    assert (offset % 2 == 1);
+    uint i;
+    if ( offset % p == 0)
+        i = 0;
+    else
+    {
+        i = offset / p + 1; //ceil (k);
+
+        if ( i % 2 == 0 )
+            i += 1;
+
+        i = i*p - offset;
+
+        i /= 2;
+    }
+
+    //trace (("Filling i=%d for p=%d with offset=%d.", i, p, offset));
+
+
+    while (i < length)
+    {
+        chunk[i] = true;
+        i += p;
+    }
+}
+
+
+void offset_sieve (uint from, uint to)
 {
     time_function ();
+    bool* chunk = new bool[chunk_length];
     uint length = to - from;
     length = (length > 2*chunk_length ? chunk_length : length/2);
 
-    trace (("Sieving from %d to %d.\n", from, from+2*length));
+    trace (("Sieving from %d to %d.", from, from+2*length));
 
     for (uint i = 0; i < factor_length; i++)
     {
@@ -377,22 +383,16 @@ void offset_sieve (bool* chunk, uint from, uint to)
     std::this_thread::yield ();
 
     if ( to - from  > 2*chunk_length )
-    {
-        for (uint j = 0; j < chunk_length; j++ )
-            chunk[j] = false;
-        //memset (chunk, 0, chunk_length);
-        offset_sieve (chunk, from + 2*length, to);
-    }
+        offset_sieve (from + 2*length, to);
 }
 
 void worker (uint from, uint to)
 {
-    trace (("I was assigned %d to %d.\n", from, to));
-    bool* chunk = new bool[chunk_length];
+    trace (("I was assigned %d to %d.", from, to));
 
-    offset_sieve (chunk, from, to);
+    offset_sieve (from, to);
 
-    trace (("I finished %d to %d.\n", from, to));
+    trace (("I finished %d to %d.", from, to));
 }
 
 // The main main function
@@ -428,11 +428,11 @@ int main()
 
     std::thread* workers[THREADS];
 
-    uint from = 3+buffer_length*2 + 2;//[buffer_length-1]+2;
+    uint from = 3+buffer_length*2;//[buffer_length-1]+2;
     uint to = 32452845;
     uint end;
     uint assignment_length = (to - from)/THREADS + 1;
-    
+
     if (assignment_length % 2 == 1)
         assignment_length++;
 
@@ -449,7 +449,7 @@ int main()
 
     for (int j = 0; j < THREADS; j++)
         workers[j]->join();
-    
+
     split_thread.join();
     output_thread.join ();
 
