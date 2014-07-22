@@ -264,7 +264,8 @@ void split_chunks_into_output_chunks ()
     uint number_of_primes = 1;
     char* buffer = new char[max_digits];
     char* itr = buffer;
-    while (running)
+    bool splitting = true;
+    while (splitting)
     {
         chunk c = queue.pop ();
         output_chunk oc;
@@ -304,7 +305,7 @@ void split_chunks_into_output_chunks ()
 
             if (number_of_primes >= find_number_of_primes)
             {
-                running = false;
+                splitting = false;
                 break;
             }
 
@@ -453,7 +454,9 @@ int main()
     for (int j = 0; j < THREADS; j++)
         workers[j]->join();
 
+
     split_thread.join();
+    running = false;
     output_thread.join ();
 
     return 0;
