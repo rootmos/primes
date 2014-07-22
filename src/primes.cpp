@@ -262,8 +262,6 @@ void split_chunks_into_output_chunks ()
 {
     time_function ();
     uint number_of_primes = 1;
-    char* buffer = new char[max_digits];
-    char* itr = buffer;
     bool splitting = true;
     while (splitting)
     {
@@ -272,7 +270,6 @@ void split_chunks_into_output_chunks ()
 
         oc.buffer = new char[OUTPUT_CHUNK_LENGTH+1];
         char* output_itr = oc.buffer;
-        uint used = 0;
 
         bool* sieve_itr = c.data;
         bool* end = c.data + c.length;
@@ -283,15 +280,8 @@ void split_chunks_into_output_chunks ()
             {
                 number_of_primes++;
 
-                uint digits = naive_uint_to_str_reversed_and_walk (itr, prime);
-
-                assert (digits + 1 + used <= OUTPUT_CHUNK_LENGTH);
-
-                write_reversed_into_buffer_and_walk (output_itr, itr, digits);
-                output_itr[1] = '\n';
-                output_itr += 2;
-                used += digits + 1;
-                itr = buffer;
+                uint written = sprintf (output_itr, "%u\n", prime);
+                output_itr += written;
             }
 
             if (number_of_primes >= find_number_of_primes)
