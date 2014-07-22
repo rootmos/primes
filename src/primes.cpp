@@ -276,29 +276,20 @@ void split_chunks_into_output_chunks ()
 
         bool* sieve_itr = c.data;
         bool* end = c.data + c.length;
+        uint prime = c.offset;
         while ( sieve_itr < end )
         {
             if (!(*sieve_itr))
             {
                 number_of_primes++;
 
-                uint prime = 2*(sieve_itr - c.data) + c.offset;
                 uint digits = naive_uint_to_str_reversed_and_walk (itr, prime);
 
-                if (digits + 1 + used > OUTPUT_CHUNK_LENGTH)
-                {
-                    oc.length = output_itr-oc.buffer;
-                    output_queue.push (oc);
-
-                    oc.buffer = new char[OUTPUT_CHUNK_LENGTH+1];
-                    output_itr = oc.buffer;
-                    used = 0;
-                }
+                assert (digits + 1 + used <= OUTPUT_CHUNK_LENGTH);
 
                 write_reversed_into_buffer_and_walk (output_itr, itr, digits);
-                output_itr++;
-                output_itr[0] = '\n';
-                output_itr++;
+                output_itr[1] = '\n';
+                output_itr += 2;
                 used += digits + 1;
                 itr = buffer;
             }
@@ -310,6 +301,7 @@ void split_chunks_into_output_chunks ()
             }
 
             sieve_itr++;
+            prime += 2;
         }
 
         oc.length = output_itr-oc.buffer;
