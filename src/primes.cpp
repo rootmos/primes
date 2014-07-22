@@ -9,6 +9,7 @@
 #include <queue>
 #include <condition_variable>
 #include <atomic>
+#include <boost/spirit/include/karma.hpp>
 
 // For traces and cheat
 #include <stdio.h>
@@ -210,6 +211,11 @@ public:
         queue.pop ();
         return t;
     };
+
+    bool empty ()
+    {
+        return queue.empty ();
+    };
 };
 
 static chunk_queue queue;
@@ -279,9 +285,12 @@ void split_chunks_into_output_chunks ()
             if (!(*sieve_itr))
             {
                 number_of_primes++;
-
-                uint written = sprintf (output_itr, "%u\n", prime);
-                output_itr += written;
+                using namespace boost::spirit;
+                using boost::spirit::karma::generate;
+                
+                generate(output_itr, uint_, prime);
+                *output_itr = '\n';
+                output_itr++;
             }
 
             if (number_of_primes >= find_number_of_primes)
@@ -310,7 +319,7 @@ void output_worker ()
 
     fwrite ("2\n", 2, sizeof (char), file);
 
-    while (running)
+    while (running || !output_queue.empty ())
     {
         output_chunk oc = output_queue.pop ();
 
