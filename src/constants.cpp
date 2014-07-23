@@ -42,6 +42,7 @@ uint estimate_number_of_factors_needed (uint n)
 
 void initialize_constants (uint n)
 {
+    uint number_of_digits = ceil (log10 (estimate_upper_bound_nth_prime (n)));
     
     estimate_number_of_factors_needed (n);
 
