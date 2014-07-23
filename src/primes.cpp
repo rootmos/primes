@@ -21,26 +21,19 @@ using uint = unsigned int;
 
 uint factors[factor_length];
 
-#define chunk_length 1000000
+#define chunk_length 100000
 
-struct output_chunk
-{
-    char *buffer;
-    int length;
-};
+typedef offset_chunk<bool> split_chunk;
+typedef offset_chunk<char> output_chunk;
 
-
-static chunk_queue queue;
-static blocking_queue<output_chunk> output_queue;
+static blocking_queue<split_chunk> split_queue;
+static offset_chunk_queue<char> output_queue;
 
 
 // TODO: estimate this at program start
 size_t max_digits = 100;
 uint find_number_of_primes = 2000000;
 #define OUTPUT_CHUNK_LENGTH 2000000
-
-static std::atomic_bool running(true);
-
 
 
 // The primitive "non-offset" sieve
@@ -77,18 +70,17 @@ void sieve (bool* odds)
 // The thread for splitting chunks into newline separated output chunks. We
 // also count the number of primes here.
 
+std::atomic_uint number_of_primes(1);
+
 void split_chunks_into_output_chunks ()
 {
     time_function ();
-    uint number_of_primes = 1;
-    bool splitting = true;
     output_chunk oc;
-    while (splitting)
+    split_chunk c;
+    while (split_queue.pop (c))
     {
-        chunk c = queue.pop ();
-
-        oc.buffer = new char[OUTPUT_CHUNK_LENGTH+1];
-        char* output_itr = oc.buffer;
+        oc.data = new char[OUTPUT_CHUNK_LENGTH+1];
+        char* output_itr = oc.data;
 
         bool* sieve_itr = c.data;
         bool* end = c.data + c.length;
@@ -106,7 +98,7 @@ void split_chunks_into_output_chunks ()
             
                 if (number_of_primes >= find_number_of_primes)
                 {
-                    splitting = false;
+                    split_queue.stop ();
                     break;
                 }
             }
@@ -114,7 +106,10 @@ void split_chunks_into_output_chunks ()
             sieve_itr++;
         }
 
-        oc.length = output_itr-oc.buffer;
+        oc.length = output_itr-oc.data;
+        oc.offset = c.offset;
+        oc.next_offset = c.offset + 2*c.length;
+        trace (("Pushing chunk with offset %d for output. Next chunk to write is %d", c.offset, oc.next_offset));
         output_queue.push (oc);
         //delete [] c.data;
     }
@@ -136,11 +131,13 @@ void output_worker ()
 
     fwrite ("2\n", 2, sizeof (char), file);
 
-    while (running || !output_queue.empty ())
-    {
-        output_chunk oc = output_queue.pop ();
+    output_chunk oc;
 
-        fwrite (oc.buffer, oc.length, sizeof (char), file);
+    while (output_queue.pop (oc))
+    {
+        fwrite (oc.data, oc.length, sizeof (char), file);
+
+        trace (("Wrote chunk with offset %d.", oc.offset));
         //delete [] oc.buffer;
     }
 
@@ -193,7 +190,7 @@ void offset_sieve (uint from, uint to)
         fill_offset (chunk, factors[i], from, length);
     }
 
-    queue.push (chunk, from, length);
+    split_queue.push (split_chunk (chunk, from, length));
 
     std::this_thread::yield ();
 
@@ -211,7 +208,9 @@ int main()
 
     // Start our two auxillary threads
 
-    std::thread split_thread(split_chunks_into_output_chunks);
+    std::thread split_thread1(split_chunks_into_output_chunks);
+    std::thread split_thread2(split_chunks_into_output_chunks);
+    std::thread split_thread3(split_chunks_into_output_chunks);
     std::thread output_thread(output_worker);
 
     // Let's find the first factors we need
@@ -220,7 +219,7 @@ int main()
     sieve (odds);
 
     // Output the first factors we've found
-    queue.push (odds, 3, buffer_length);
+    split_queue.push (split_chunk (odds, 3, buffer_length));
 
     // Generate the factors we are going to need
 
@@ -269,8 +268,12 @@ int main()
 
     // Wait for the auxillary threads
 
-    split_thread.join();
-    running = false;
+    split_thread1.join();
+    split_thread2.join();
+    split_thread3.join();
+
+    output_queue.stop ();
+    
     output_thread.join ();
 
     // Success!
