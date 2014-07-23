@@ -31,7 +31,7 @@ bool test (uint i, uint prime);
 #endif
 
 
-#ifdef TIMING
+#ifndef NTIMING
 
 // Timing functions
 

@@ -1,5 +1,5 @@
 #include "debug.hpp"
-
+#include "config.h"
 
 
 #ifndef NTESTING
@@ -29,16 +29,16 @@ bool test (uint i, uint prime)
 #endif
 
 
-#ifdef TIMING
+#ifndef NTIMING
 
 std::mutex time_block_class::cerr_lock;
 
-inline time_block_class::time_block_class (const char* m) : message (m)
+time_block_class::time_block_class (const char* m) : message (m)
 {
     clock_gettime (clock, &start);
 }
 
-inline time_block_class::~time_block_class ()
+time_block_class::~time_block_class ()
 {
     timespec end;
     clock_gettime (clock, &end);
