@@ -6,12 +6,12 @@
 #include "chunk_queue.hpp"
 #include "blocking_queue.hpp"
 #include "debug.hpp"
+#include "constants.hpp"
 
 #include "config.h"
 
 
 using uint = unsigned int;
-
 
 // sqrt (32452843) = 5696 > 5695 = 3+2*2846
 #define buffer_length 2847
@@ -82,17 +82,16 @@ void split_chunks_into_output_chunks ()
     time_function ();
     uint number_of_primes = 1;
     bool splitting = true;
+    output_chunk oc;
     while (splitting)
     {
         chunk c = queue.pop ();
-        output_chunk oc;
 
         oc.buffer = new char[OUTPUT_CHUNK_LENGTH+1];
         char* output_itr = oc.buffer;
 
         bool* sieve_itr = c.data;
         bool* end = c.data + c.length;
-        uint prime = c.offset;
         while ( sieve_itr < end )
         {
             if (!(*sieve_itr))
@@ -101,23 +100,23 @@ void split_chunks_into_output_chunks ()
                 using namespace boost::spirit;
                 using boost::spirit::karma::generate;
 
-                generate(output_itr, uint_, prime);
+                generate(output_itr, uint_, 2*(sieve_itr - c.data) + c.offset);
                 *output_itr = '\n';
                 output_itr++;
-            }
-
-            if (number_of_primes >= find_number_of_primes)
-            {
-                splitting = false;
-                break;
+            
+                if (number_of_primes >= find_number_of_primes)
+                {
+                    splitting = false;
+                    break;
+                }
             }
 
             sieve_itr++;
-            prime += 2;
         }
 
         oc.length = output_itr-oc.buffer;
         output_queue.push (oc);
+        //delete [] c.data;
     }
 
 }
@@ -142,6 +141,7 @@ void output_worker ()
         output_chunk oc = output_queue.pop ();
 
         fwrite (oc.buffer, oc.length, sizeof (char), file);
+        //delete [] oc.buffer;
     }
 
     fclose (file);
@@ -181,6 +181,7 @@ inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
 
 void offset_sieve (uint from, uint to)
 {
+    time_function ();
     bool* chunk = new bool[chunk_length];
     uint length = to - from;
     length = (length > 2*chunk_length ? chunk_length : length/2);
