@@ -6,7 +6,10 @@ AC_INIT([primes], [0.01], [gustav.behm@gmail.com])
 
 AM_INIT_AUTOMAKE
 
+AC_PROG_LIBTOOL
+
 m4_include([ac_header_traces.m4])
+m4_include([boost.m4])
 
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_FILES([Makefile src/Makefile])
@@ -83,8 +86,11 @@ AX_CXX_COMPILE_STDCXX_11
 # Checks for libraries
 AX_PTHREAD
 
-LIBS="$PTHREAD_LIBS $LIBS"
-CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+BOOST_REQUIRE
+BOOST_PROGRAM_OPTIONS
+
+LIBS="$PTHREAD_LIBS $LIBS $BOOST_LDFLAGS"
+CFLAGS="$CFLAGS $PTHREAD_CFLAGS $BOOST_CPPFLAGS"
 
 # Checks for header files.
 

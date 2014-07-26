@@ -3,6 +3,6 @@
 
 using uint = unsigned int;
 
-void initialize_constants (uint n);
+bool parse_options(int ac, char* av[]);
 
 #endif
