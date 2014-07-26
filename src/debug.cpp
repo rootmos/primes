@@ -1,10 +1,10 @@
 #include "debug.hpp"
 #include "config.h"
-
+#include "constants.hpp"
 
 #ifndef NTESTING
 
-uint cheat[TOTAL_PRIMES] = { 0 };
+uint* cheat = new uint[number_of_primes];
 
 void read_cheat ()
 {
@@ -12,7 +12,7 @@ void read_cheat ()
 
     assert (file != nullptr);
 
-    for (uint i = 0; i < TOTAL_PRIMES+1; i++)
+    for (uint i = 0; i < number_of_primes+1; i++)
         assert ( fscanf (file, "%d", &cheat[i]) == 1 );
 
     fclose (file);
