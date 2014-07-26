@@ -13,15 +13,7 @@
 
 using uint = unsigned int;
 
-// sqrt (32452843) = 5696 > 5695 = 3+2*2846
-#define buffer_length 2847
-
-// 751th prime = 5701, need only 749 since we skip the two
-#define factor_length 749
-
-uint factors[factor_length];
-
-#define chunk_length 100000
+uint* factors;
 
 typedef offset_chunk<bool> split_chunk;
 typedef offset_chunk<char> output_chunk;
@@ -30,38 +22,34 @@ static blocking_queue<split_chunk> split_queue;
 static offset_chunk_queue<char> output_queue;
 
 
-// TODO: estimate this at program start
-size_t max_digits = 100;
-uint find_number_of_primes = 2000000;
-#define OUTPUT_CHUNK_LENGTH 2000000
-
-
 // The primitive "non-offset" sieve
 
-inline void fill (bool* odds, uint i)
+inline void fill (bool* odds, uint i, uint length)
 {
     uint n = 3 + 2*i;
 
-    for (uint j = i + n; j < buffer_length; j += n)
+    for (uint j = i + n; j < length; j += n)
     {
         odds[j] = true;
     }
 }
 
-void sieve (bool* odds)
+void sieve (bool* odds, uint length)
 {
     time_function ();
     uint i = 0;
 
-    while (i < buffer_length)
+    trace (("Initial sieve: from=3 to=%d.", 1+length*2));
+
+    while (i < length)
     {
-        fill (odds, i);
+        fill (odds, i, length);
 
         while (odds[++i])
         {
         }
 
-        // trace (("Found prime %d at %d.", 3+2*i, i));
+        //trace (("Found prime %d at %d.", 3+2*i, i));
     }
 }
 
@@ -70,7 +58,7 @@ void sieve (bool* odds)
 // The thread for splitting chunks into newline separated output chunks. We
 // also count the number of primes here.
 
-std::atomic_uint number_of_primes(1);
+std::atomic_uint current_number_of_primes(1);
 
 void split_chunks_into_output_chunks ()
 {
@@ -79,7 +67,7 @@ void split_chunks_into_output_chunks ()
     split_chunk c;
     while (split_queue.pop (c))
     {
-        oc.data = new char[OUTPUT_CHUNK_LENGTH+1];
+        oc.data = new char[output_chunk_length+1];
         char* output_itr = oc.data;
 
         bool* sieve_itr = c.data;
@@ -88,15 +76,14 @@ void split_chunks_into_output_chunks ()
         {
             if (!(*sieve_itr))
             {
-                number_of_primes++;
                 using namespace boost::spirit;
                 using boost::spirit::karma::generate;
 
                 generate(output_itr, uint_, 2*(sieve_itr - c.data) + c.offset);
                 *output_itr = '\n';
                 output_itr++;
-            
-                if (number_of_primes >= find_number_of_primes)
+
+                if (++current_number_of_primes >= number_of_primes)
                 {
                     split_queue.stop ();
                     break;
@@ -185,7 +172,7 @@ void offset_sieve (uint from, uint to)
 
     trace (("Sieving from %d to %d.", from, from+2*length));
 
-    for (uint i = 0; i < factor_length; i++)
+    for (uint i = 0; i < number_of_factors; i++)
     {
         fill_offset (chunk, factors[i], from, length);
     }
@@ -202,57 +189,64 @@ void offset_sieve (uint from, uint to)
 
 // The main main function
 
-int main()
+int main(int argc, char* argv[])
 {
     time_function ();
 
+    // First we parse our options
+
+    if (!parse_options (argc, argv))
+        return 1;
+
     // Start our two auxillary threads
 
-    std::thread split_thread1(split_chunks_into_output_chunks);
-    std::thread split_thread2(split_chunks_into_output_chunks);
-    std::thread split_thread3(split_chunks_into_output_chunks);
+    std::thread** splitters = new std::thread*[splitting_threads];
+
+    uint i;
+    for (i = 0; i < splitting_threads; i++)
+        splitters[i] = new std::thread (split_chunks_into_output_chunks);
+
     std::thread output_thread(output_worker);
 
     // Let's find the first factors we need
 
-    bool odds[buffer_length] = { false };
-    sieve (odds);
+    bool* odds = new bool[number_of_odds_to_find_factors];
+    for (i = 0; i < number_of_odds_to_find_factors; i++)
+        odds [i] = false;
+
+    sieve (odds, number_of_odds_to_find_factors);
 
     // Output the first factors we've found
-    split_queue.push (split_chunk (odds, 3, buffer_length));
+    split_queue.push (split_chunk (odds, 3, number_of_odds_to_find_factors));
 
     // Generate the factors we are going to need
 
-    uint i = 0;
-    bool* itr = odds;
-    for (i = 0; i < factor_length; i++)
+    factors = new uint[number_of_factors];
+    number_of_factors = 0;
+    for (i = 0; i < number_of_odds_to_find_factors; i++)
     {
-        while(*itr)
+        if (!odds[i])
         {
-            itr++;
-            if (itr >= odds + buffer_length)
-                break;
+            factors[number_of_factors++] = 3 + 2*i;
+            //trace (("Factor %d=%d.", number_of_factors, factors[number_of_factors-1]));
         }
-        factors[i] = 3 + 2*(itr-odds);
-        itr++;
     }
 
+    // Start the workers and assign them regions to sieve
 
-    // Start the workers and assign them regions to sieve 
+    std::thread** workers = new std::thread*[sieving_threads];
 
-    std::thread* workers[THREADS];
-
-    uint from = 3+buffer_length*2;
-    uint to = 32452845;
+    uint from = 3+number_of_odds_to_find_factors*2;
+    uint to = nth_prime;
     uint end;
-    uint assignment_length = (to - from)/THREADS + 1;
+    uint assignment_length = (to - from)/sieving_threads + 1;
 
     if (assignment_length % 2 == 1)
         assignment_length++;
 
-    for (int j = 0; j < THREADS; j++)
+    for (uint j = 0; j < sieving_threads; j++)
     {
-        if (j+1 == THREADS)
+        if (j+1 == sieving_threads)
             end = to;
         else
             end = from + assignment_length;
@@ -262,18 +256,21 @@ int main()
     }
 
     // Wait for the workers to finish sieving
-    
-    for (int j = 0; j < THREADS; j++)
-        workers[j]->join();
+
+    for (i = 0; i < sieving_threads; i++)
+        workers[i]->join();
+
+    trace (("All sieving threads done."));
 
     // Wait for the auxillary threads
 
-    split_thread1.join();
-    split_thread2.join();
-    split_thread3.join();
+    for (i = 0; i < splitting_threads; i++)
+        splitters[i]->join();
+
+    trace (("All splitting threads done."));
 
     output_queue.stop ();
-    
+
     output_thread.join ();
 
     // Success!
