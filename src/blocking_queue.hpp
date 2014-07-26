@@ -25,9 +25,9 @@ public:
     void push (T t)
     {
         std::unique_lock<std::mutex> lock (mutex);
-        
+
         queue.push (t);
-        flag.notify_all ();
+        flag.notify_one ();
     };
 
     bool pop (T& t)
