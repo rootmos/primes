@@ -5,6 +5,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <functional>
 
 template<typename T>
 class blocking_queue
@@ -15,6 +16,19 @@ class blocking_queue
     std::condition_variable flag;
 
     std::atomic_bool running;
+
+    bool pop_or_not ()
+    {
+        return !running || !queue.empty();
+    };
+    
+    typedef std::function<bool (const T&)> Predicate;
+
+    bool pop_or_not_with_predicate (Predicate &p)
+    {
+        return !running || ( !queue.empty() && p(queue.front ()) );
+    };
+
 
 public:
 
@@ -34,7 +48,23 @@ public:
     {
         std::unique_lock<std::mutex> lock (mutex);
 
-        flag.wait (lock, [this] { return !running || !queue.empty (); });
+        flag.wait (lock, std::bind (&blocking_queue::pop_or_not, this)); //[this] { return !running || !queue.empty (); });
+
+        if (!running)
+            return false;
+
+        t = queue.front ();
+        queue.pop ();
+        return true;
+    };
+
+
+    bool pop_if (T& t, Predicate& p)
+    {
+        std::unique_lock<std::mutex> lock (mutex);
+
+        flag.wait (lock, std::bind (&blocking_queue::pop_or_not_with_predicate,
+                                    this, p));
 
         if (!running)
             return false;
