@@ -10,7 +10,8 @@ extern uint number_of_primes,
        output_chunk_length,
        number_of_factors,
        number_of_odds_to_find_factors,
-       nth_prime;
+       nth_prime,
+       nth_prime_below;
 
 bool parse_options(int ac, char* av[]);
 

@@ -17,13 +17,19 @@ uint number_of_primes,
      output_chunk_length,
      number_of_factors,
      number_of_odds_to_find_factors,
-     nth_prime;
+     nth_prime,
+     nth_prime_below;
 
 // Functions for our estimations
 
 inline uint estimate_upper_bound_nth_prime (uint n)
 {
     return ceil ( n * (log(n) + log(log(n))) );
+}
+
+inline uint estimate_lower_bound_nth_prime (uint n)
+{
+    return floor ( n * (log(n) + log(log(n)) - 1) );
 }
 
 std::tuple<float,float> f (float x, float p)
@@ -72,6 +78,8 @@ void initialize_constants (uint n)
     time_function ();
 
     estimate_factors (n);
+
+    nth_prime_below = estimate_lower_bound_nth_prime (n);
 
     uint number_of_digits = ceil (log10 (estimate_upper_bound_nth_prime (n)));
 
