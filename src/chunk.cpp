@@ -1,10 +1,11 @@
 #include "chunk.hpp"
-#include "debug.hpp"
 #include "odds.hpp"
 #include "constants.hpp"
 #include <cassert>
 #include <algorithm>
 #include <boost/spirit/include/karma.hpp>
+
+#include "debug.hpp"
 
 using uint = unsigned int;
 
@@ -21,6 +22,10 @@ chunk::chunk_impl::chunk_impl(uint f, uint t):
 
 chunk::chunk (uint f, uint t) :
     impl (new chunk::chunk_impl (f, t))
+{ }
+
+chunk::chunk () :
+    impl ()
 { }
 
 
@@ -63,7 +68,7 @@ chunk::chunk_impl::fill_offset (uint p)
 // Function to sieve the chunk
 
 void
-chunk::sieve (std::vector<bool>& factors)
+chunk::sieve (std::vector<uint>& factors)
 {
     time_function ();
 
@@ -76,15 +81,6 @@ chunk::sieve (std::vector<bool>& factors)
 }
 
 // Count the number of primes in the sieve
-
-inline uint
-chunk::size ()
-{
-    if (impl->primes == 0)
-        impl->do_count ();
-
-    return impl->primes;
-}
 
 void
 chunk::chunk_impl::do_count ()
@@ -123,5 +119,18 @@ chunk::chunk_impl::prepare_for_output ()
 
         *(output_itr++) = '\n';
     }
+}
+
+
+// Function for extracting the output string
+
+void
+chunk::c_str (const char*& buffer, size_t& length) const
+{
+    assert (impl->output.length () != 0
+            && "Must prepare_for_output before c_str!");
+
+    buffer = impl->output.c_str ();
+    length = impl->output.length ();
 }
 

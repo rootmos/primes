@@ -32,17 +32,28 @@ class chunk
 
 public:
 
+    chunk ();
     chunk (uint f, uint t);
 
     bool operator<(const chunk& rhs);
 
-    uint size ();
+    uint size () const;
 
-    void sieve (std::vector<bool>& factors);
+    void sieve (std::vector<uint>& factors);
 
     void prepare_for_output () { impl->prepare_for_output (); };
 
+    void c_str (const char*& buffer, size_t& length) const;
 };
 
+
+inline uint
+chunk::size () const
+{
+    if (impl->primes == 0)
+        impl->do_count ();
+
+    return impl->primes;
+}
 
 #endif

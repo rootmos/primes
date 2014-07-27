@@ -22,7 +22,7 @@ public:
         running (true)
     {};
 
-    void push (T t)
+    void push (const T& t)
     {
         std::unique_lock<std::mutex> lock (mutex);
 

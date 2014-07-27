@@ -1,19 +1,22 @@
 #include <thread>
 #include <cassert>
-#include <atomic>
-#include <boost/spirit/include/karma.hpp>
+#include <cmath>
+#include <algorithm>
+
+#include <boost/scoped_array.hpp>
 
 #include "chunk_queue.hpp"
 #include "blocking_queue.hpp"
 #include "debug.hpp"
 #include "constants.hpp"
+#include "chunk.hpp"
 
 #include "config.h"
 
 
 using uint = unsigned int;
 
-uint* factors;
+std::vector<uint> factors;
 
 typedef offset_chunk<bool> split_chunk;
 typedef offset_chunk<char> output_chunk;
@@ -55,59 +58,38 @@ void sieve (bool* odds, uint length)
 
 
 
-// The thread for splitting chunks into newline separated output chunks. We
-// also count the number of primes here.
+blocking_queue<chunk> sieved_chunks;
+blocking_queue<chunk> splitted_chunks;
 
-std::atomic_uint current_number_of_primes(1);
-
-void split_chunks_into_output_chunks ()
+void sieving_thread (std::unique_ptr<std::vector<chunk> > chunks)
 {
     time_function ();
-    output_chunk oc;
-    split_chunk c;
-    while (split_queue.pop (c))
+
+    for (std::vector<chunk>::iterator itr = chunks->begin ();
+         itr != chunks->end ();
+         itr++)
     {
-        oc.data = new char[output_chunk_length+1];
-        char* output_itr = oc.data;
+        chunk& c = *itr;
+        c.sieve (factors);
 
-        bool* sieve_itr = c.data;
-        bool* end = c.data + c.length;
-        while ( sieve_itr < end )
-        {
-            if (!(*sieve_itr))
-            {
-                using namespace boost::spirit;
-                using boost::spirit::karma::generate;
+        // Force a count. TODO: can we move this to a more efficient place?
+        c.size ();
 
-                generate(output_itr, uint_, 2*(sieve_itr - c.data) + c.offset);
-                *output_itr = '\n';
-                output_itr++;
-
-                if (++current_number_of_primes >= number_of_primes)
-                {
-                    split_queue.stop ();
-                    break;
-                }
-            }
-
-            sieve_itr++;
-        }
-
-        oc.length = output_itr-oc.data;
-        oc.offset = c.offset;
-        oc.next_offset = c.offset + 2*c.length;
-        trace (("Pushing chunk with offset %d for output. Next chunk to write is %d", c.offset, oc.next_offset));
-        output_queue.push (oc);
-        //delete [] c.data;
+        sieved_chunks.push (c);
     }
-
 }
 
+void splitting_thread ()
+{
+    time_function ();
 
-
-
-// The output worker thead, which basically just pops the output queue and
-// writes the chunks into the file
+    chunk c;
+    while (sieved_chunks.pop (c))
+    {
+        c.prepare_for_output ();
+        splitted_chunks.push (c);
+    }
+}
 
 void output_worker ()
 {
@@ -118,14 +100,14 @@ void output_worker ()
 
     fwrite ("2\n", 2, sizeof (char), file);
 
-    output_chunk oc;
+    chunk c;
+    const char* buffer;
+    size_t length;
 
-    while (output_queue.pop (oc))
+    while (splitted_chunks.pop (c))
     {
-        fwrite (oc.data, oc.length, sizeof (char), file);
-
-        trace (("Wrote chunk with offset %d.", oc.offset));
-        //delete [] oc.buffer;
+        c.c_str (buffer, length);
+        fwrite (buffer, length, sizeof (char), file);
     }
 
     fclose (file);
@@ -133,57 +115,31 @@ void output_worker ()
 
 
 
-// The two methods used in the offset sieve worker threads
-
-inline void fill_offset (bool* chunk, uint p, uint offset, uint length)
-{
-    assert (offset % 2 == 1);
-    uint i;
-    if ( offset % p == 0)
-        i = 0;
-    else
-    {
-        i = offset / p + 1;
-
-        if ( i % 2 == 0 )
-            i += 1;
-
-        i = i*p - offset;
-
-        i /= 2;
-    }
-
-    //trace (("Filling i=%d for p=%d with offset=%d.", i, p, offset));
-
-    while (i < length)
-    {
-        chunk[i] = true;
-        i += p;
-    }
-}
-
-
-void offset_sieve (uint from, uint to)
+void prepare_factors ()
 {
     time_function ();
-    bool* chunk = new bool[chunk_length];
-    uint length = to - from;
-    length = (length > 2*chunk_length ? chunk_length : length/2);
 
-    trace (("Sieving from %d to %d.", from, from+2*length));
+    boost::scoped_array<bool> odds(new bool[number_of_odds_to_find_factors]);
 
-    for (uint i = 0; i < number_of_factors; i++)
+    // Sieve the odds
+
+    sieve (odds.get (), number_of_odds_to_find_factors);
+
+    // Get the factors out of the sieve
+
+    factors.reserve (number_of_factors);
+    number_of_factors = 0;
+    for (uint i = 0; i < number_of_odds_to_find_factors; i++)
     {
-        fill_offset (chunk, factors[i], from, length);
+        if (!odds[i])
+        {
+            factors[number_of_factors++] = 3 + 2*i;
+        }
     }
 
-    split_queue.push (split_chunk (chunk, from, length));
-
-    std::this_thread::yield ();
-
-    if ( to - from  > 2*chunk_length )
-        offset_sieve (from + 2*length, to);
 }
+
+
 
 
 
@@ -198,74 +154,85 @@ int main(int argc, char* argv[])
     if (!parse_options (argc, argv))
         return 1;
 
-    // Start our two auxillary threads
+    // Start our two types of auxillary threads
+    
+    std::vector<std::thread> splitters(splitting_threads);
 
-    std::thread** splitters = new std::thread*[splitting_threads];
-
-    uint i;
-    for (i = 0; i < splitting_threads; i++)
-        splitters[i] = new std::thread (split_chunks_into_output_chunks);
+    for (uint i = 0; i < splitting_threads; i++)
+        splitters.push_back(std::thread (splitting_thread));
 
     std::thread output_thread(output_worker);
 
-    // Let's find the first factors we need
-
-    bool* odds = new bool[number_of_odds_to_find_factors];
-    for (i = 0; i < number_of_odds_to_find_factors; i++)
-        odds [i] = false;
-
-    sieve (odds, number_of_odds_to_find_factors);
-
-    // Output the first factors we've found
-    split_queue.push (split_chunk (odds, 3, number_of_odds_to_find_factors));
 
     // Generate the factors we are going to need
 
-    factors = new uint[number_of_factors];
-    number_of_factors = 0;
-    for (i = 0; i < number_of_odds_to_find_factors; i++)
+    prepare_factors ();
+
+
+    // Let's figure out the sievers' assignments first
+
+    uint start = 3+number_of_odds_to_find_factors*2;
+    uint end = nth_prime_below;
+
+    uint number_of_chunks_per_siever
+        = ceil ( float(end - start) / chunk_length / sieving_threads );
+
+    // The assignment vectors will be handed over to the threads together with
+    // the responsibility to remove them...
+    std::vector<std::unique_ptr<std::vector<chunk> > > assignments(sieving_threads);
+
+    for (uint i = 0; i < sieving_threads; i++)
+        assignments.push_back
+            (std::unique_ptr<std::vector<chunk> >
+             (new std::vector<chunk>(number_of_chunks_per_siever)));
+
+    // Spread out the chunks across the threads
+
+    uint siever = 0;
+    uint from = start;
+    uint to = from + chunk_length;
+
+    do
     {
-        if (!odds[i])
-        {
-            factors[number_of_factors++] = 3 + 2*i;
-            //trace (("Factor %d=%d.", number_of_factors, factors[number_of_factors-1]));
-        }
+        assignments[siever++]->push_back (chunk (from, to));
+        siever %= assignments.size ();
+        from = to + 1;
+        to = from + chunk_length;
+        if (to > end)
+            to = end;
     }
+    while (from < end);
+    
+    // Let's start the sieving threads
 
-    // Start the workers and assign them regions to sieve
+    std::vector<std::thread> sievers(sieving_threads);
 
-    std::thread** workers = new std::thread*[sieving_threads];
+    std::for_each
+        (assignments.begin (), assignments.end (),
+         [&sievers] (std::unique_ptr<std::vector<chunk> >& assignment)
+         { sievers.push_back
+            (std::thread (sieving_thread, std::move(assignment))); });
 
-    uint from = 3+number_of_odds_to_find_factors*2;
-    uint to = nth_prime;
-    uint end;
-    uint assignment_length = (to - from)/sieving_threads + 1;
 
-    if (assignment_length % 2 == 1)
-        assignment_length++;
+    // TODO: do something with the last chunk!
 
-    for (uint j = 0; j < sieving_threads; j++)
-    {
-        if (j+1 == sieving_threads)
-            end = to;
-        else
-            end = from + assignment_length;
 
-        workers[j] = new std::thread (offset_sieve, from, end);
-        from += assignment_length;
-    }
 
     // Wait for the workers to finish sieving
 
-    for (i = 0; i < sieving_threads; i++)
-        workers[i]->join();
+    std::for_each
+        (sievers.begin (), sievers.end (),
+         [] (std::thread& thread)
+         { thread.join(); });
 
     trace (("All sieving threads done."));
 
     // Wait for the auxillary threads
-
-    for (i = 0; i < splitting_threads; i++)
-        splitters[i]->join();
+    
+    std::for_each
+        (splitters.begin (), splitters.end (),
+         [] (std::thread& thread)
+         { thread.join(); });
 
     trace (("All splitting threads done."));
 
