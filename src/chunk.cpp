@@ -90,7 +90,7 @@ chunk::sieve (std::vector<uint>& factors)
 void
 chunk::chunk_impl::do_count ()
 {
-    assert (odds.size () != 0 && "Need to sieve first!");
+    assert (!odds.empty () && "Need to sieve first!");
 
     std::for_each (odds.begin (), odds.end (),
                    [this] (bool n) { if (!n) ++primes; });
@@ -106,7 +106,7 @@ chunk::chunk_impl::prepare_for_output ()
 
     // TODO: Perhaps we can afford to to digits*odds.size()...
     output.reserve (output_chunk_length);
-    
+
     std::insert_iterator<std::string> sink(output, output.begin ());
 
     for (std::vector<bool>::iterator sieve_itr = odds.begin ();
@@ -133,10 +133,37 @@ chunk::chunk_impl::prepare_for_output ()
 void
 chunk::c_str (const char*& buffer, size_t& length) const
 {
-    assert (impl->output.length () != 0
-            && "Must prepare_for_output before c_str!");
+    assert (!impl->output.empty () && "Must prepare_for_output before c_str!");
 
     buffer = impl->output.c_str ();
     length = impl->output.length ();
+}
+
+
+// Function for resizing the chunk
+
+void
+chunk::chunk_impl::resize (uint n)
+{
+    assert (!odds.empty () && "Haven't even sieved yet!");
+
+    uint m = 0;
+
+    auto itr = odds.begin ();
+
+    for (; itr != odds.end (); ++itr)
+    {
+        if (*itr)
+            continue;
+
+        if (++m == n)
+            break;
+    }
+
+    assert (m == n && "Didn't find enough primes in the sieve!");
+
+    primes = m;
+
+    odds.erase (++itr, odds.end ());
 }
 

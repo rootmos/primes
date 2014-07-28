@@ -4,13 +4,12 @@
 #include <algorithm>
 #include <functional>
 
-#include <boost/scoped_array.hpp>
-
 #include "chunk_queue.hpp"
 #include "blocking_queue.hpp"
 #include "debug.hpp"
 #include "constants.hpp"
 #include "chunk.hpp"
+#include "odds.hpp"
 
 #include "config.h"
 
@@ -18,13 +17,6 @@
 using uint = unsigned int;
 
 std::vector<uint> factors;
-
-typedef offset_chunk<bool> split_chunk;
-typedef offset_chunk<char> output_chunk;
-
-static blocking_queue<split_chunk> split_queue;
-static offset_chunk_queue<char> output_queue;
-
 
 // The primitive "non-offset" sieve
 
@@ -62,21 +54,26 @@ void sieve (std::vector<bool>& odds)
 blocking_queue<chunk> sieved_chunks;
 blocking_queue<chunk, std::priority_queue<chunk> > splitted_chunks;
 
+chunk last_chunk;
+
 void sieving_thread (std::unique_ptr<std::vector<chunk> > chunks)
 {
     time_function ();
 
-    for (std::vector<chunk>::iterator itr = chunks->begin ();
-         itr != chunks->end ();
-         itr++)
+    for (auto itr = chunks->begin (); itr != chunks->end (); itr++)
     {
         chunk& c = *itr;
         c.sieve (factors);
 
-        // Force a count. TODO: can we move this to a more efficient place?
-        c.size ();
+        // We have special plans for the last chunk, so if we find it we leave
+        // it be after sieving it
+        if (c != last_chunk)
+        {
+            // Force a count. TODO: can we move this to a more efficient place?
+            c.size ();
 
-        sieved_chunks.push (c);
+            sieved_chunks.push (c);
+        }
 
         std::this_thread::yield ();
     }
@@ -91,11 +88,12 @@ void splitting_thread ()
     {
         c.prepare_for_output ();
         splitted_chunks.push (c);
-        
+
         std::this_thread::yield ();
     }
 }
 
+bool popped_last_chunk = false;
 
 class pop_next_chunk
 {
@@ -109,6 +107,12 @@ public:
         {
             next = c.to () + 2;
             //trace (("Poped chunk with offset %d. Next will be %d.", c.from (), next));
+
+            if (c == last_chunk)
+            {
+                sieved_chunks.stop ();
+                popped_last_chunk = true;
+            }
             return true;
         }
         else
@@ -132,7 +136,7 @@ void output_worker ()
 
     std::function<bool(const chunk&)> predicate = pop_next_chunk();
 
-    while (splitted_chunks.pop (c, predicate))
+    while (!popped_last_chunk && splitted_chunks.pop (c, predicate))
     {
         trace (("Writing chunk starting with %d.", c.from ()));
         c.c_str (buffer, length);
@@ -183,8 +187,9 @@ int main(int argc, char* argv[])
         return 1;
 
     // Start our two types of auxillary threads
-    
+
     std::vector<std::thread> splitters;
+    splitters.reserve (splitting_threads);
 
     for (uint i = 0; i < splitting_threads; i++)
         splitters.push_back(std::thread (splitting_thread));
@@ -202,9 +207,14 @@ int main(int argc, char* argv[])
     uint start = 1+number_of_odds_to_find_factors*2+2;
     uint end = nth_prime_below;
 
+    std::vector<chunk> chunks;
+    float number_of_chunks = float(nth_prime - start) / chunk_length;
+    chunks.reserve (ceil (number_of_chunks));
+
     // The assignment vectors will be handed over to the threads together with
     // the responsibility to remove them...
     std::vector<std::unique_ptr<std::vector<chunk> > > assignments;
+    assignments.reserve (ceil (number_of_chunks / sieving_threads));
 
     for (uint i = 0; i < sieving_threads; i++)
         assignments.push_back
@@ -219,7 +229,9 @@ int main(int argc, char* argv[])
 
     do
     {
-        assignments[siever++]->push_back (chunk (from, to));
+        chunk c(from, to);
+        chunks.push_back(c);
+        assignments[siever++]->push_back (c);
         siever %= assignments.size ();
         from = to + 1;
         to = from + chunk_length;
@@ -227,21 +239,20 @@ int main(int argc, char* argv[])
             to = end;
     }
     while (from < end);
-    
+
+    last_chunk = chunk(odds::upper(end+1), nth_prime);
+    assignments[siever]->push_back(last_chunk);
+
     // Let's start the sieving threads
 
     std::vector<std::thread> sievers;
+    sievers.reserve (sieving_threads);
 
     std::for_each
         (assignments.begin (), assignments.end (),
          [&sievers] (std::unique_ptr<std::vector<chunk> >& assignment)
          { sievers.push_back
             (std::thread (sieving_thread, std::move(assignment))); });
-
-
-    // TODO: do something with the last chunk!
-
-
 
     // Wait for the workers to finish sieving
 
@@ -252,16 +263,23 @@ int main(int argc, char* argv[])
 
     trace (("All sieving threads done."));
 
+    // Now we count how many primes we have in the chunks (except the last one)
+
+    uint primes_found = std::accumulate
+        (chunks.begin (), chunks.end (),factors.size () + 1,
+         [] (const uint& sum, const chunk& c) { return sum + c.size (); });
+
+    last_chunk.resize (number_of_primes - primes_found);
+    sieved_chunks.push (last_chunk);
+
     // Wait for the auxillary threads
-    
+
     std::for_each
         (splitters.begin (), splitters.end (),
          [] (std::thread& thread)
          { thread.join(); });
 
     trace (("All splitting threads done."));
-
-    output_queue.stop ();
 
     output_thread.join ();
 

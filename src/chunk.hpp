@@ -27,6 +27,8 @@ class chunk
         void fill_offset (uint p);
         void do_count ();
         void prepare_for_output ();
+
+        void resize (uint n);
     };
 
     std::shared_ptr<chunk_impl> impl;
@@ -38,8 +40,12 @@ public:
     chunk (uint f, uint t, std::vector<bool>&& odds);
 
     bool operator<(const chunk& rhs) const;
+    bool operator==(const chunk& rhs) const;
+    bool operator!=(const chunk& rhs) const;
 
     uint size () const;
+
+    void resize (uint n) { impl->resize (n); };
 
     void sieve (std::vector<uint>& factors);
 
@@ -63,13 +69,26 @@ chunk::size () const
     return impl->primes;
 }
 
-
 // The ordering of our chunks
 
 inline bool
 chunk::operator<(const chunk& rhs) const
 {
     return impl->from > rhs.impl->from;
+}
+
+// The equality and inequality operators
+
+inline bool
+chunk::operator==(const chunk& rhs) const
+{
+    return impl == rhs.impl;
+}
+
+inline bool
+chunk::operator!=(const chunk& rhs) const
+{
+    return !operator==(rhs);
 }
 
 
