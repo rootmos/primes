@@ -104,6 +104,7 @@ public:
         if (c.from () == next)
         {
             next = c.to () + 2;
+            trace (("Poped chunk with offset %d. Next will be %d.", c.from (), next));
             return true;
         }
         else
@@ -129,6 +130,7 @@ void output_worker ()
 
     while (splitted_chunks.pop (c, predicate))
     {
+        trace (("Writing chunk starting with %d.", c.from ()));
         c.c_str (buffer, length);
         fwrite (buffer, length, sizeof (char), file);
     }
@@ -179,7 +181,7 @@ int main(int argc, char* argv[])
 
     // Start our two types of auxillary threads
     
-    std::vector<std::thread> splitters(splitting_threads);
+    std::vector<std::thread> splitters;
 
     for (uint i = 0; i < splitting_threads; i++)
         splitters.push_back(std::thread (splitting_thread));
@@ -197,17 +199,14 @@ int main(int argc, char* argv[])
     uint start = 3+number_of_odds_to_find_factors*2;
     uint end = nth_prime_below;
 
-    uint number_of_chunks_per_siever
-        = ceil ( float(end - start) / chunk_length / sieving_threads );
-
     // The assignment vectors will be handed over to the threads together with
     // the responsibility to remove them...
-    std::vector<std::unique_ptr<std::vector<chunk> > > assignments(sieving_threads);
+    std::vector<std::unique_ptr<std::vector<chunk> > > assignments;
 
     for (uint i = 0; i < sieving_threads; i++)
         assignments.push_back
-            (std::unique_ptr<std::vector<chunk> >
-             (new std::vector<chunk>(number_of_chunks_per_siever)));
+            (std::move(std::unique_ptr<std::vector<chunk> >
+             (new std::vector<chunk>)));
 
     // Spread out the chunks across the threads
 
@@ -228,7 +227,7 @@ int main(int argc, char* argv[])
     
     // Let's start the sieving threads
 
-    std::vector<std::thread> sievers(sieving_threads);
+    std::vector<std::thread> sievers;
 
     std::for_each
         (assignments.begin (), assignments.end (),
