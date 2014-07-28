@@ -19,7 +19,6 @@ chunk::chunk_impl::chunk_impl(uint f, uint t) :
     odds (odds::number_of_odds_between_odds (from, to)),
     output ()
 {
-    std::fill (odds.begin (), odds.end (), false);
 }
 
 chunk::chunk (uint f, uint t) :
