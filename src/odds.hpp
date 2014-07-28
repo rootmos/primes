@@ -17,7 +17,7 @@ T number_of_odds_between (T from, T to)
 template<typename T>
 constexpr T number_of_odds_between_odds (const T& from, const T& to)
 {
-    return (to - from)/2;
+    return (to - from)/2 + 1;
 }
 
 

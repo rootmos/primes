@@ -18,7 +18,9 @@ chunk::chunk_impl::chunk_impl(uint f, uint t) :
     primes (0),
     odds (odds::number_of_odds_between_odds (from, to)),
     output ()
-{ }
+{
+    std::fill (odds.begin (), odds.end (), false);
+}
 
 chunk::chunk (uint f, uint t) :
     impl (new chunk::chunk_impl (f, t))
@@ -104,8 +106,8 @@ chunk::chunk_impl::prepare_for_output ()
 
     // TODO: Perhaps we can afford to to digits*odds.size()...
     output.reserve (output_chunk_length);
-
-    std::string::iterator output_itr = output.begin ();
+    
+    std::insert_iterator<std::string> sink(output, output.begin ());
 
     for (std::vector<bool>::iterator sieve_itr = odds.begin ();
          sieve_itr != odds.end ();
@@ -117,10 +119,11 @@ chunk::chunk_impl::prepare_for_output ()
         using namespace boost::spirit;
         using boost::spirit::karma::generate;
 
-        generate(output_itr, uint_,
-                 2*std::distance(odds.begin (), sieve_itr) + from);
+        uint prime = 2*std::distance(odds.begin (), sieve_itr) + from;
 
-        *(output_itr++) = '\n';
+        generate(sink, uint_, prime);
+
+        *(sink++) = '\n';
     }
 }
 

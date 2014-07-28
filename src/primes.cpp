@@ -108,7 +108,7 @@ public:
         if (c.from () == next)
         {
             next = c.to () + 2;
-            trace (("Poped chunk with offset %d. Next will be %d.", c.from (), next));
+            //trace (("Poped chunk with offset %d. Next will be %d.", c.from (), next));
             return true;
         }
         else
@@ -157,16 +157,13 @@ void prepare_factors ()
     // Get the factors out of the sieve
 
     factors.reserve (number_of_factors);
-    number_of_factors = 0;
     for (uint i = 0; i < number_of_odds_to_find_factors; i++)
     {
         if (!odds[i])
-        {
-            factors[number_of_factors++] = 3 + 2*i;
-        }
+            factors.push_back(3 + 2*i);
     }
 
-    sieved_chunks.push (chunk (3, 3+number_of_odds_to_find_factors*2,
+    sieved_chunks.push (chunk (3, 1+number_of_odds_to_find_factors*2,
                                std::move(odds)));
 }
 
@@ -202,7 +199,7 @@ int main(int argc, char* argv[])
 
     // Let's figure out the sievers' assignments first
 
-    uint start = 3+number_of_odds_to_find_factors*2;
+    uint start = 1+number_of_odds_to_find_factors*2+2;
     uint end = nth_prime_below;
 
     // The assignment vectors will be handed over to the threads together with

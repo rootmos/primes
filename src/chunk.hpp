@@ -69,7 +69,7 @@ chunk::size () const
 inline bool
 chunk::operator<(const chunk& rhs) const
 {
-    return impl->from < rhs.impl->from;
+    return impl->from > rhs.impl->from;
 }
 
 

@@ -66,7 +66,7 @@ private:
         return !running || !queue.empty();
     };
 
-    bool pop_or_not_with_predicate (Predicate &p)
+    bool pop_or_not_with_predicate (Predicate& p)
     {
         return !running || ( !queue.empty() && p(front_adapter<Q> ()) );
     };
@@ -122,7 +122,7 @@ public:
     bool pop (T& t, Predicate& p)
     {
         return pop (t, std::bind (&blocking_queue::pop_or_not_with_predicate,
-                                    this, p));
+                                    this, std::ref(p)));
     };
 
 
