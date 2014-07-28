@@ -64,7 +64,12 @@ chunk::chunk_impl::fill_offset (uint p)
 
     while (i < odds.size ())
     {
-        odds[i] = true;
+        auto o = odds[i];
+        if (!o)
+        {
+            o = true;
+            primes -= 1;
+        }
         i += p;
     }
 }
@@ -74,14 +79,16 @@ chunk::chunk_impl::fill_offset (uint p)
 void
 chunk::sieve (std::vector<uint>& factors)
 {
-    time_function ();
+    //time_function ();
 
-    trace (("Sieving from %d to %d.", impl->from, impl->to));
+    impl->primes = impl->odds.size (); //odds::number_of_odds_between_odds (impl->from, impl->to);
 
     for (uint i = 0; i < factors.size (); i++)
     {
         impl->fill_offset (factors[i]);
     }
+    
+    trace (("Sieving from %d to %d. Found %u primes.", impl->from, impl->to, impl->primes));
 }
 
 // Count the number of primes in the sieve
@@ -101,24 +108,22 @@ chunk::chunk_impl::do_count ()
 void
 chunk::chunk_impl::prepare_for_output ()
 {
-    time_function ();
+    //time_function ();
 
     // TODO: Perhaps we can afford to to digits*odds.size()...
     output.reserve (output_chunk_length);
 
     std::insert_iterator<std::string> sink(output, output.begin ());
 
-    for (std::vector<bool>::iterator sieve_itr = odds.begin ();
-         sieve_itr != odds.end ();
-         ++sieve_itr)
+    for (uint i = 0; i < odds.size (); i++)
     {
-        if (*sieve_itr)
+        if (odds[i])
             continue;
 
         using namespace boost::spirit;
         using boost::spirit::karma::generate;
 
-        uint prime = 2*std::distance(odds.begin (), sieve_itr) + from;
+        uint prime = 2*i + from;
 
         generate(sink, uint_, prime);
 

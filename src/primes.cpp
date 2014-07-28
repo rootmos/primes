@@ -68,12 +68,7 @@ void sieving_thread (std::unique_ptr<std::vector<chunk> > chunks)
         // We have special plans for the last chunk, so if we find it we leave
         // it be after sieving it
         if (c != last_chunk)
-        {
-            // Force a count. TODO: can we move this to a more efficient place?
-            c.size ();
-
             sieved_chunks.push (c);
-        }
 
         std::this_thread::yield ();
     }
