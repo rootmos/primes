@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cmath>
 #include <algorithm>
+#include <functional>
 
 #include <boost/scoped_array.hpp>
 
@@ -59,7 +60,7 @@ void sieve (bool* odds, uint length)
 
 
 blocking_queue<chunk> sieved_chunks;
-blocking_queue<chunk> splitted_chunks;
+blocking_queue<chunk, std::priority_queue<chunk> > splitted_chunks;
 
 void sieving_thread (std::unique_ptr<std::vector<chunk> > chunks)
 {
@@ -91,6 +92,26 @@ void splitting_thread ()
     }
 }
 
+
+class pop_next_chunk
+{
+    uint next = 3;
+
+public:
+
+    bool operator() (const chunk& c)
+    {
+        if (c.from () == next)
+        {
+            next = c.to () + 2;
+            return true;
+        }
+        else
+            return false;
+    };
+};
+
+
 void output_worker ()
 {
     time_function ();
@@ -104,7 +125,9 @@ void output_worker ()
     const char* buffer;
     size_t length;
 
-    while (splitted_chunks.pop (c))
+    std::function<bool(const chunk&)> predicate = pop_next_chunk();
+
+    while (splitted_chunks.pop (c, predicate))
     {
         c.c_str (buffer, length);
         fwrite (buffer, length, sizeof (char), file);

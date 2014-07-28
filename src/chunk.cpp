@@ -29,15 +29,6 @@ chunk::chunk () :
 { }
 
 
-// The ordering of our chunks
-
-inline bool
-chunk::operator<(const chunk& rhs)
-{
-    return impl->from < rhs.impl->from;
-}
-
-
 // The function for filling the internal odds with multiples of a prime
 
 inline void

@@ -35,7 +35,7 @@ public:
     chunk ();
     chunk (uint f, uint t);
 
-    bool operator<(const chunk& rhs);
+    bool operator<(const chunk& rhs) const;
 
     uint size () const;
 
@@ -44,8 +44,13 @@ public:
     void prepare_for_output () { impl->prepare_for_output (); };
 
     void c_str (const char*& buffer, size_t& length) const;
+
+    uint from () const { return impl->from; };
+    uint to () const { return impl->to; };
 };
 
+
+// The method for getting the number of primes in the chunk
 
 inline uint
 chunk::size () const
@@ -55,5 +60,15 @@ chunk::size () const
 
     return impl->primes;
 }
+
+
+// The ordering of our chunks
+
+inline bool
+chunk::operator<(const chunk& rhs) const
+{
+    return impl->from < rhs.impl->from;
+}
+
 
 #endif
