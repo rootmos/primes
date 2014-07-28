@@ -1,0 +1,9 @@
+#!/bin/sh
+
+n=$1
+shift
+
+for i in `seq 1 $n`;
+do
+    $@
+done
