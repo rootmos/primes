@@ -13,7 +13,7 @@ using uint = unsigned int;
 
 // Our construtctors
 
-chunk::chunk_impl::chunk_impl(uint f, uint t):
+chunk::chunk_impl::chunk_impl(uint f, uint t) :
     from (odds::upper (f)), to ( odds::lower (t)),
     primes (0),
     odds (odds::number_of_odds_between_odds (from, to)),
@@ -22,6 +22,18 @@ chunk::chunk_impl::chunk_impl(uint f, uint t):
 
 chunk::chunk (uint f, uint t) :
     impl (new chunk::chunk_impl (f, t))
+{ }
+
+
+chunk::chunk_impl::chunk_impl (uint f, uint t, std::vector<bool>&& o) :
+    from (odds::upper (f)), to ( odds::lower (t)),
+    primes (0),
+    odds (o),
+    output ()
+{ }
+
+chunk::chunk (uint f, uint t, std::vector<bool>&& odds) :
+    impl (new chunk::chunk_impl (f, t, std::move(odds)))
 { }
 
 chunk::chunk () :

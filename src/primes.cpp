@@ -28,26 +28,26 @@ static offset_chunk_queue<char> output_queue;
 
 // The primitive "non-offset" sieve
 
-inline void fill (bool* odds, uint i, uint length)
+inline void fill (std::vector<bool>& odds, uint i)
 {
     uint n = 3 + 2*i;
 
-    for (uint j = i + n; j < length; j += n)
+    for (uint j = i + n; j < odds.size (); j += n)
     {
         odds[j] = true;
     }
 }
 
-void sieve (bool* odds, uint length)
+void sieve (std::vector<bool>& odds)
 {
     time_function ();
     uint i = 0;
 
-    trace (("Initial sieve: from=3 to=%d.", 1+length*2));
+    trace (("Initial sieve: from=3 to=%lu.", 1+odds.size()*2));
 
-    while (i < length)
+    while (i < odds.size ())
     {
-        fill (odds, i, length);
+        fill (odds, i);
 
         while (odds[++i])
         {
@@ -148,11 +148,11 @@ void prepare_factors ()
 {
     time_function ();
 
-    boost::scoped_array<bool> odds(new bool[number_of_odds_to_find_factors]);
+    std::vector<bool> odds(number_of_odds_to_find_factors);
 
     // Sieve the odds
 
-    sieve (odds.get (), number_of_odds_to_find_factors);
+    sieve (odds);
 
     // Get the factors out of the sieve
 
@@ -166,6 +166,8 @@ void prepare_factors ()
         }
     }
 
+    sieved_chunks.push (chunk (3, 3+number_of_odds_to_find_factors*2,
+                               std::move(odds)));
 }
 
 

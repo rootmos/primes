@@ -22,6 +22,7 @@ class chunk
         std::string output;
 
         chunk_impl (uint f, uint t);
+        chunk_impl (uint f, uint t, std::vector<bool>&& odds);
 
         void fill_offset (uint p);
         void do_count ();
@@ -34,6 +35,7 @@ public:
 
     chunk ();
     chunk (uint f, uint t);
+    chunk (uint f, uint t, std::vector<bool>&& odds);
 
     bool operator<(const chunk& rhs) const;
 
