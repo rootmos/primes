@@ -11,7 +11,8 @@ extern uint number_of_primes,
        number_of_factors,
        number_of_odds_to_find_factors,
        nth_prime,
-       nth_prime_below;
+       nth_prime_below,
+       number_of_digits;
 
 bool parse_options(int ac, char* av[]);
 

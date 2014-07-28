@@ -18,11 +18,15 @@ class chunk
         uint to;
         uint primes;
 
-        std::vector<bool> odds;
-        std::string output;
+        uint odds_length;
+        bool* odds;
+        char* output;
+        uint output_length;
 
         chunk_impl (uint f, uint t);
-        chunk_impl (uint f, uint t, std::vector<bool>&& odds);
+        chunk_impl (uint f, uint t, bool* odds, uint odds_length);
+
+        ~chunk_impl ();
 
         void fill_offset (uint p);
         void do_count ();
@@ -37,7 +41,7 @@ public:
 
     chunk ();
     chunk (uint f, uint t);
-    chunk (uint f, uint t, std::vector<bool>&& odds);
+    chunk (uint f, uint t, bool* odds, uint odds_length);
 
     bool operator<(const chunk& rhs) const;
     bool operator==(const chunk& rhs) const;
@@ -47,7 +51,7 @@ public:
 
     void resize (uint n) { impl->resize (n); };
 
-    void sieve (std::vector<uint>& factors);
+    void sieve (uint* factors, uint factors_length);
 
     void prepare_for_output () { impl->prepare_for_output (); };
 

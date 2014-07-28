@@ -18,7 +18,8 @@ uint number_of_primes,
      number_of_factors,
      number_of_odds_to_find_factors,
      nth_prime,
-     nth_prime_below;
+     nth_prime_below,
+     number_of_digits;
 
 // Functions for our estimations
 
@@ -81,7 +82,7 @@ void initialize_constants (uint n)
 
     nth_prime_below = estimate_lower_bound_nth_prime (n);
 
-    uint number_of_digits = ceil (log10 (estimate_upper_bound_nth_prime (n)));
+    number_of_digits = ceil (log10 (estimate_upper_bound_nth_prime (n)));
 
     output_chunk_length = (number_of_digits + 1)*chunk_length;
 }

@@ -20,26 +20,26 @@ std::vector<uint> factors;
 
 // The primitive "non-offset" sieve
 
-inline void fill (std::vector<bool>& odds, uint i)
+inline void fill (bool* odds, uint odds_length, uint i)
 {
     uint n = 3 + 2*i;
 
-    for (uint j = i + n; j < odds.size (); j += n)
+    for (uint j = i + n; j < odds_length; j += n)
     {
         odds[j] = true;
     }
 }
 
-void sieve (std::vector<bool>& odds)
+void sieve (bool* odds, uint odds_length)
 {
     time_function ();
     uint i = 0;
 
-    trace (("Initial sieve: from=3 to=%lu.", 1+odds.size()*2));
+    trace (("Initial sieve: from=3 to=%u.", 1+odds_length*2));
 
-    while (i < odds.size ())
+    while (i < odds_length)
     {
-        fill (odds, i);
+        fill (odds, odds_length, i);
 
         while (odds[++i])
         {
@@ -63,7 +63,7 @@ void sieving_thread (std::unique_ptr<std::vector<chunk> > chunks)
     for (auto itr = chunks->begin (); itr != chunks->end (); itr++)
     {
         chunk& c = *itr;
-        c.sieve (factors);
+        c.sieve (&factors[0], factors.size ());
 
         // We have special plans for the last chunk, so if we find it we leave
         // it be after sieving it
@@ -147,11 +147,11 @@ void prepare_factors ()
 {
     time_function ();
 
-    std::vector<bool> odds(number_of_odds_to_find_factors);
+    bool* odds = new bool[number_of_odds_to_find_factors];
 
     // Sieve the odds
 
-    sieve (odds);
+    sieve (odds, number_of_odds_to_find_factors);
 
     // Get the factors out of the sieve
 
@@ -163,7 +163,7 @@ void prepare_factors ()
     }
 
     sieved_chunks.push (chunk (3, 1+number_of_odds_to_find_factors*2,
-                               std::move(odds)));
+                               odds, number_of_odds_to_find_factors));
 }
 
 

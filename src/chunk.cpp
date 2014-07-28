@@ -16,8 +16,10 @@ using uint = unsigned int;
 chunk::chunk_impl::chunk_impl(uint f, uint t) :
     from (odds::upper (f)), to ( odds::lower (t)),
     primes (0),
-    odds (odds::number_of_odds_between_odds (from, to)),
-    output ()
+    odds_length (odds::number_of_odds_between_odds (from, to)),
+    odds (new bool[odds_length]),
+    output (nullptr),
+    output_length (0)
 {
 }
 
@@ -26,20 +28,31 @@ chunk::chunk (uint f, uint t) :
 { }
 
 
-chunk::chunk_impl::chunk_impl (uint f, uint t, std::vector<bool>&& o) :
+chunk::chunk_impl::chunk_impl (uint f, uint t, bool* o, uint o_l) :
     from (odds::upper (f)), to ( odds::lower (t)),
     primes (0),
+    odds_length (o_l),
     odds (o),
-    output ()
-{ }
+    output (nullptr),
+    output_length (0)
+{}
 
-chunk::chunk (uint f, uint t, std::vector<bool>&& odds) :
-    impl (new chunk::chunk_impl (f, t, std::move(odds)))
+chunk::chunk (uint f, uint t, bool* odds, uint odds_length) :
+    impl (new chunk::chunk_impl (f, t, odds, odds_length))
 { }
 
 chunk::chunk () :
     impl ()
 { }
+
+
+// Our implementation's destructor
+
+chunk::chunk_impl::~chunk_impl ()
+{
+    delete [] odds;
+    delete [] output;
+}
 
 
 // The function for filling the internal odds with multiples of a prime
@@ -62,12 +75,11 @@ chunk::chunk_impl::fill_offset (uint p)
         i /= 2;
     }
 
-    while (i < odds.size ())
+    while (i < odds_length)
     {
-        auto o = odds[i];
-        if (!o)
+        if (!odds[i])
         {
-            o = true;
+            odds[i] = true;
             primes -= 1;
         }
         i += p;
@@ -77,13 +89,13 @@ chunk::chunk_impl::fill_offset (uint p)
 // Function to sieve the chunk
 
 void
-chunk::sieve (std::vector<uint>& factors)
+chunk::sieve (uint* factors, uint factors_length)
 {
     //time_function ();
 
-    impl->primes = impl->odds.size (); //odds::number_of_odds_between_odds (impl->from, impl->to);
+    impl->primes = impl->odds_length;
 
-    for (uint i = 0; i < factors.size (); i++)
+    for (uint i = 0; i < factors_length; ++i)
     {
         impl->fill_offset (factors[i]);
     }
@@ -91,31 +103,16 @@ chunk::sieve (std::vector<uint>& factors)
     trace (("Sieving from %d to %d. Found %u primes.", impl->from, impl->to, impl->primes));
 }
 
-// Count the number of primes in the sieve
-
-void
-chunk::chunk_impl::do_count ()
-{
-    assert (!odds.empty () && "Need to sieve first!");
-
-    std::for_each (odds.begin (), odds.end (),
-                   [this] (bool n) { if (!n) ++primes; });
-}
-
-
 // Function to prepare the chunk for output
 
 void
 chunk::chunk_impl::prepare_for_output ()
 {
     //time_function ();
+    
+    char* output_itr = output = new char[output_chunk_length];//primes * (number_of_digits+1)];
 
-    // TODO: Perhaps we can afford to to digits*odds.size()...
-    output.reserve (output_chunk_length);
-
-    std::insert_iterator<std::string> sink(output, output.begin ());
-
-    for (uint i = 0; i < odds.size (); i++)
+    for (uint i = 0; i < odds_length; ++i)
     {
         if (odds[i])
             continue;
@@ -125,10 +122,12 @@ chunk::chunk_impl::prepare_for_output ()
 
         uint prime = 2*i + from;
 
-        generate(sink, uint_, prime);
+        generate(output_itr, uint_, prime);
 
-        *(sink++) = '\n';
+        *(output_itr++) = '\n';
     }
+
+    output_length = output_itr - output;
 }
 
 
@@ -137,10 +136,8 @@ chunk::chunk_impl::prepare_for_output ()
 void
 chunk::c_str (const char*& buffer, size_t& length) const
 {
-    assert (!impl->output.empty () && "Must prepare_for_output before c_str!");
-
-    buffer = impl->output.c_str ();
-    length = impl->output.length ();
+    buffer = impl->output;
+    length = impl->output_length;
 }
 
 
@@ -149,15 +146,12 @@ chunk::c_str (const char*& buffer, size_t& length) const
 void
 chunk::chunk_impl::resize (uint n)
 {
-    assert (!odds.empty () && "Haven't even sieved yet!");
-
     uint m = 0;
+    uint i = 0;
 
-    auto itr = odds.begin ();
-
-    for (; itr != odds.end (); ++itr)
+    for (; i < odds_length; ++i)
     {
-        if (*itr)
+        if (odds[i])
             continue;
 
         if (++m == n)
@@ -167,7 +161,6 @@ chunk::chunk_impl::resize (uint n)
     assert (m == n && "Didn't find enough primes in the sieve!");
 
     primes = m;
-
-    odds.erase (++itr, odds.end ());
+    odds_length = i+1;
 }
 
