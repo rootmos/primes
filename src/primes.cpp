@@ -77,6 +77,8 @@ void sieving_thread (std::unique_ptr<std::vector<chunk> > chunks)
         c.size ();
 
         sieved_chunks.push (c);
+
+        std::this_thread::yield ();
     }
 }
 
@@ -89,6 +91,8 @@ void splitting_thread ()
     {
         c.prepare_for_output ();
         splitted_chunks.push (c);
+        
+        std::this_thread::yield ();
     }
 }
 
