@@ -35,6 +35,14 @@ BOOST_PROGRAM_OPTIONS
 LIBS="$PTHREAD_LIBS $LIBS $BOOST_LDFLAGS"
 CFLAGS="$CFLAGS $PTHREAD_CFLAGS $BOOST_CPPFLAGS"
 
+
+# Include the cppformat library
+CPPFORMAT_INCL='-I$(top_srcdir)/cppformat'
+CPPFORMAT_LIBS='-L$(top_srcdir)/cppformat -lformat'
+AC_SUBST(CPPFORMAT_INCL)
+AC_SUBST(CPPFORMAT_LIBS)
+
+
 # Checks for header files.
 
 
