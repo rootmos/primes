@@ -4,8 +4,7 @@
 #include <cassert>
 #include <algorithm>
 
-#include <boost/spirit/include/karma.hpp>
-
+#include <string.h>
 #include <format.h>
 
 #include "debug.hpp"
@@ -80,10 +79,11 @@ chunk::chunk_impl::fill_offset (uint p)
 
     while (i < odds_length)
     {
-        if (!odds[i])
+        bool& odd = odds[i]; 
+        if (!odd)
         {
-            odds[i] = true;
-            primes -= 1;
+            odd = true;
+            --primes;
         }
         i += p;
     }
