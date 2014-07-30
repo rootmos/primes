@@ -55,6 +55,23 @@ chunk::chunk_impl::~chunk_impl ()
     delete [] output;
 }
 
+// Count the number of primes in the sieve
+
+void
+chunk::chunk_impl::do_count ()
+{
+    auto odds_itr = the_wheel.iterate_from (from);
+
+    uint i = odds_itr.position ();
+    while (i < odds_length)
+    {
+        if (!odds[i])
+            ++primes;
+
+        i = odds_itr.next ();
+    }
+}
+
 
 // The function for filling the internal odds with multiples of a prime
 
@@ -78,11 +95,7 @@ chunk::chunk_impl::fill_offset (uint p)
 
     while (i < odds_length)
     {
-        if (!odds[i])
-        {
-            odds[i] = true;
-            primes -= 1;
-        }
+        odds[i] = true;
         i += p;
     }
 }
@@ -94,13 +107,11 @@ chunk::sieve (uint* factors, uint factors_length)
 {
     //time_function ();
 
-    impl->primes = impl->odds_length;
-
     for (uint i = 0; i < factors_length; ++i)
     {
         impl->fill_offset (factors[i]);
     }
-    
+
     trace (("Sieving from %d to %d. Found %u primes.", impl->from, impl->to, impl->primes));
 }
 

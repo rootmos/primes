@@ -67,6 +67,9 @@ public:
 inline uint
 chunk::size () const
 {
+    if (impl->primes == 0)
+        impl->do_count ();
+
     return impl->primes;
 }
 

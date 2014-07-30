@@ -67,6 +67,8 @@ void sieving_thread (std::unique_ptr<std::vector<chunk> > chunks)
         chunk& c = *itr;
         c.sieve (&factors[0], factors.size ());
 
+        c.size (); // Force count
+
         // We have special plans for the last chunk, so if we find it we leave
         // it be after sieving it
         if (c != last_chunk)
@@ -268,6 +270,7 @@ int main(int argc, char* argv[])
     uint primes_found = std::accumulate
         (chunks.begin (), chunks.end (),factors.size () + 1,
          [] (const uint& sum, const chunk& c) { return sum + c.size (); });
+
 
     last_chunk.resize (number_of_primes - primes_found);
     sieved_chunks.push (last_chunk);

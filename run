@@ -1,4 +1,4 @@
-#!/bin/sh -x
+#!/bin/sh
 
 cd tmp
 cp ../src/primes .
@@ -16,6 +16,7 @@ do
             c=`echo $c '*100000' | bc`
             echo -n "$s\t$p\t$c\t" >> $file
             /usr/bin/time -f "%e\t%P" --append -o $file ../repeat $1 ./primes -s $s -p $p -c $c
+            echo "Completed s=$s p=$p c=$c"
             #diff output ../2000000.txt
         done
     done

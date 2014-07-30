@@ -9,7 +9,7 @@
 
 using uint = unsigned int;
 
-static constexpr uint wheel_buffer = 20;
+static constexpr uint wheel_buffer = 255255;
 
 template<uint n>
 class wheel
@@ -77,12 +77,12 @@ public:
 
         wheel_length = i;
 
-        std::cout << "The wheel:" << std::endl;
-        for (uint j = 0; j < wheel_length; j++)
-        {
-            std::cout << wheel[j];
-        }
-        std::cout << std::endl;
+        //std::cout << "The wheel:" << std::endl;
+        //for (uint j = 0; j < wheel_length; j++)
+        //{
+        //    std::cout << wheel[j];
+        //}
+        //std::cout << std::endl;
     }
 
 
@@ -107,25 +107,27 @@ public:
 
             our_start = their_start - offset;
 
-            std::cout << "1 their_start=" << their_start << std::endl;
-            std::cout << "1 our_start=" << our_start << std::endl;
-            std::cout << "1 offset=" << offset << std::endl;
-            
+            //std::cout << "1 their_start=" << their_start << std::endl;
+            //std::cout << "1 our_start=" << our_start << std::endl;
+            //std::cout << "1 offset=" << offset << std::endl;
+
 
             uint i = 0;
 
             while (our_start < their_start)
             {
-                our_start += w.wheel[i];
-                i = (i + 1) % w.wheel_length;
+                our_start += w.wheel[i++];
+                if (i == w.wheel_length)
+                    i = 0;
+                //i = (i + 1) % w.wheel_length;
             }
 
             offset = our_start - their_start;
             our_start = i;
 
-            std::cout << "2 their_start=" << their_start << std::endl;
-            std::cout << "2 our_start=" << our_start << std::endl;
-            std::cout << "2 offset=" << offset << std::endl;
+            //std::cout << "2 their_start=" << their_start << std::endl;
+            //std::cout << "2 our_start=" << our_start << std::endl;
+            //std::cout << "2 offset=" << offset << std::endl;
 
             reset ();
 
@@ -143,8 +145,10 @@ public:
 
         uint next ()
         {
-            their_position += wheel.wheel[our_position];
-            our_position = (our_position + 1) % wheel.wheel_length;
+            their_position += wheel.wheel[our_position++];
+            if (our_position == wheel.wheel_length)
+                our_position = 0;
+            //our_position = (our_position + 1) % wheel.wheel_length;
             return their_position;
         }
 
