@@ -3,7 +3,10 @@
 #include "constants.hpp"
 #include <cassert>
 #include <algorithm>
+
 #include <boost/spirit/include/karma.hpp>
+
+#include <format.h>
 
 #include "debug.hpp"
 
@@ -117,12 +120,14 @@ chunk::chunk_impl::prepare_for_output ()
         if (odds[i])
             continue;
 
-        using namespace boost::spirit;
-        using boost::spirit::karma::generate;
-
         uint prime = 2*i + from;
+        
+        auto string = fmt::FormatInt(prime);
+        size_t length = string.size ();
 
-        generate(output_itr, uint_, prime);
+        memcpy (output_itr, string.c_str(), length);
+
+        output_itr += length;
 
         *(output_itr++) = '\n';
     }
