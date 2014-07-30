@@ -13,6 +13,8 @@
 
 #include "config.h"
 
+#include "wheel.hpp"
+
 
 using uint = unsigned int;
 
@@ -161,9 +163,12 @@ void prepare_factors ()
         if (!odds[i])
             factors.push_back(3 + 2*i);
     }
+    
+    the_wheel.invent (factors);
 
     sieved_chunks.push (chunk (3, 1+number_of_odds_to_find_factors*2,
                                odds, number_of_odds_to_find_factors));
+
 }
 
 

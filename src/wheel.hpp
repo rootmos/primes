@@ -9,6 +9,8 @@
 
 using uint = unsigned int;
 
+static constexpr uint wheel_buffer = 20;
+
 template<uint n>
 class wheel
 {
@@ -75,50 +77,80 @@ public:
 
         wheel_length = i;
 
-        //std::cout << "The wheel:" << std::endl;
-        //for (uint j = 0; j < wheel_length; j++)
-        //{
-        //    std::cout << wheel[j];
-        //}
-        //std::cout << std::endl;
+        std::cout << "The wheel:" << std::endl;
+        for (uint j = 0; j < wheel_length; j++)
+        {
+            std::cout << wheel[j];
+        }
+        std::cout << std::endl;
     }
 
 
     class iterator
     {
         const class wheel& wheel;
-        uint offset;
-        uint position;
 
-        iterator(const class wheel& w, uint start):
+
+        uint their_start; // Their buffer starts at this odd number
+        uint our_start; // ... which corresponds to this for us
+        int offset; // ... +- thin number of odds
+
+        uint their_position;
+        int our_position;
+
+        iterator(const class wheel& w, uint from):
             wheel (w)
         {
-            offset = start - (start % (2*w.length)) + 1;
+            their_start = (from - 1)/2;
+
+            offset = their_start % w.length;
+
+            our_start = their_start - offset;
+
+            std::cout << "1 their_start=" << their_start << std::endl;
+            std::cout << "1 our_start=" << our_start << std::endl;
+            std::cout << "1 offset=" << offset << std::endl;
+            
 
             uint i = 0;
-            while(i < w.wheel_length)
+
+            while (our_start < their_start)
             {
-                uint test_offset = offset + 2*w.wheel[i];
-                if (test_offset >= start)
-                    break;
-                offset = test_offset;
-                i++;
+                our_start += w.wheel[i];
+                i = (i + 1) % w.wheel_length;
             }
 
-            position = i;
+            offset = our_start - their_start;
+            our_start = i;
+
+            std::cout << "2 their_start=" << their_start << std::endl;
+            std::cout << "2 our_start=" << our_start << std::endl;
+            std::cout << "2 offset=" << offset << std::endl;
+
+            reset ();
+
         }
 
         friend class wheel;
 
     public:
 
+        void reset ()
+        {
+            their_position = offset;
+            our_position = our_start;
+        }
+
         uint next ()
         {
-            uint next = wheel.wheel[position];
+            their_position += wheel.wheel[our_position];
+            our_position = (our_position + 1) % wheel.wheel_length;
+            return their_position;
+        }
 
-            position = (position + 1) % wheel.wheel_length;
-            offset = offset + 2*next;
-            return offset;
+        uint position ()
+        {
+            return their_position;
         }
     };
 
@@ -128,5 +160,8 @@ public:
     }
 
 };
+
+
+extern wheel<wheel_buffer> the_wheel;
 
 #endif

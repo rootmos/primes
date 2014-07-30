@@ -6,6 +6,7 @@
 #include <boost/spirit/include/karma.hpp>
 
 #include "debug.hpp"
+#include "wheel.hpp"
 
 using uint = unsigned int;
 
@@ -112,10 +113,16 @@ chunk::chunk_impl::prepare_for_output ()
     
     char* output_itr = output = new char[output_chunk_length];//primes * (number_of_digits+1)];
 
-    for (uint i = 0; i < odds_length; ++i)
+    auto odds_itr = the_wheel.iterate_from (from);
+
+    uint i = odds_itr.position ();
+    while (i < odds_length)
     {
         if (odds[i])
+        {
+            i = odds_itr.next ();
             continue;
+        }
 
         using namespace boost::spirit;
         using boost::spirit::karma::generate;
@@ -125,6 +132,8 @@ chunk::chunk_impl::prepare_for_output ()
         generate(output_itr, uint_, prime);
 
         *(output_itr++) = '\n';
+
+        i = odds_itr.next ();
     }
 
     output_length = output_itr - output;
