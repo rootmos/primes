@@ -62,30 +62,39 @@ chunk::chunk_impl::~chunk_impl ()
 inline void
 chunk::chunk_impl::fill_offset (uint p)
 {
-    uint i;
-    if ( from % p == 0)
-        i = 0;
-    else
-    {
-        i = from / p + 1;
+    assert ( odds::is_odd (from) );
 
-        if ( i % 2 == 0 )
+    uint i = 0; // We assume that we start filling from the start of the buffer.
+
+    // If we already are at an odd multiple of p then don't change the start.
+    if ( from % p != 0 )
+    {
+        // Otherwise we find the next point in the grid of odd multiples of p
+
+        i = from / p + 1; // Fast version of ceil (from/p), since: from/p != int
+
+        // Then if we ended up at an even multiple go to the next multiple
+        if ( odds::is_even (i) )
             i += 1;
 
-        i = i*p - from;
-
-        i /= 2;
+        // Lastly we determine the distance between our start and the chosen
+        // multiple of p
+        i = odds::distance_between_odds (from, i*p);
     }
+
 
     while (i < odds_length)
     {
-        bool& odd = odds[i]; 
+        bool& odd = odds[i];
+        i += p;
+
+        // Since we count the primes in the sieve; we check if we've visited
+        // the odd before
         if (!odd)
         {
             odd = true;
-            --primes;
+            --primes; // Do the counting
         }
-        i += p;
     }
 }
 
@@ -94,26 +103,26 @@ chunk::chunk_impl::fill_offset (uint p)
 void
 chunk::sieve (uint* factors, uint factors_length)
 {
-    //time_function ();
-
+    // We count at the same time we are sieving, so a priori we have the same
+    // number of primes as our buffer is long
     impl->primes = impl->odds_length;
 
     for (uint i = 0; i < factors_length; ++i)
     {
         impl->fill_offset (factors[i]);
     }
-    
-    trace (("Sieving from %d to %d. Found %u primes.", impl->from, impl->to, impl->primes));
+
+    trace (("Sieving from %d to %d. Found %u primes.",
+            impl->from, impl->to, impl->primes));
 }
+
 
 // Function to prepare the chunk for output
 
 void
 chunk::chunk_impl::prepare_for_output ()
 {
-    //time_function ();
-    
-    char* output_itr = output = new char[output_chunk_length];//primes * (number_of_digits+1)];
+    char* output_itr = output = new char[output_chunk_length];
 
     for (uint i = 0; i < odds_length; ++i)
     {
@@ -121,7 +130,7 @@ chunk::chunk_impl::prepare_for_output ()
             continue;
 
         uint prime = 2*i + from;
-        
+
         auto string = fmt::FormatInt(prime);
         size_t length = string.size ();
 
@@ -151,6 +160,8 @@ chunk::c_str (const char*& buffer, size_t& length) const
 void
 chunk::chunk_impl::resize (uint n)
 {
+    // We determine how long into the sieve we need to go before encountering n
+    // primes
     uint m = 0;
     uint i = 0;
 
@@ -165,7 +176,9 @@ chunk::chunk_impl::resize (uint n)
 
     assert (m == n && "Didn't find enough primes in the sieve!");
 
+
+    // Then set the length of the buffer.
     primes = m;
-    odds_length = i+1;
+    odds_length = i+1; // + 1 since we want to include the prime we stoped at
 }
 

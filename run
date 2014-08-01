@@ -7,17 +7,17 @@ file="../tests/test-"`date +%F-%T`
 
 echo "repeats $1 times." > $file
 
-for s in `seq 1 $2`;
+for s in `seq $2`;
 do
-    for p in `seq 1 $3`;
+    for p in `seq $3`;
     do
-        for c in `seq 1 $4`;
+        for c in `seq $4`;
         do
             c=`echo $c '*100000' | bc`
             echo -n "$s\t$p\t$c\t" >> $file
             /usr/bin/time -f "%e\t%P" --append -o $file ../repeat $1 ./primes -s $s -p $p -c $c
             echo "Completed s=$s p=$p c=$c"
-            #diff output ../2000000.txt
+            diff output ../2000000.txt
         done
     done
 done
