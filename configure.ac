@@ -7,9 +7,7 @@ AC_INIT([primes], [0.01], [gustav.behm@gmail.com])
 AM_INIT_AUTOMAKE
 
 AC_PROG_LIBTOOL
-
-m4_include([ac_header_traces.m4])
-m4_include([boost.m4])
+AC_CONFIG_MACRO_DIR([m4])
 
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_FILES([Makefile src/Makefile])
