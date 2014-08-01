@@ -1,12 +1,1 @@
 primes
-Makefile
-Makefile.in
-autom4te.cache/
-compile
-config.status
-missing
-config.h
-config.h.in
-stamp-h1
-depcomp
-.deps

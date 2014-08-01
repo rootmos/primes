@@ -1,7 +1,8 @@
 #!/bin/sh
 
+mkdir -p tests
 cd tmp
-cp ../src/primes .
+cp ../$5 .
 
 file="../tests/test-"`date +%F-%T`
 
