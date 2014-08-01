@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <functional>
 
-#include "chunk_queue.hpp"
 #include "blocking_queue.hpp"
 #include "debug.hpp"
 #include "constants.hpp"
