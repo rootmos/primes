@@ -19,7 +19,7 @@ include_directories ("${Boost_INCLUDE_DIR}")
 
 # We include the cppformat headers and libraries
 include_directories ("${PROJECT_SOURCE_DIR}/cppformat")
-link_directories ("${PROJECT_SOURCE_DIR}/cppformat")
+link_directories ("${CMAKE_CURRENT_BINARY_DIR}/cppformat")
 
 
 # Our options
@@ -35,4 +35,5 @@ set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -pg")
 set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Ofast")
 
 
+add_subdirectory (cppformat EXCLUDE_FROM_ALL)
 add_subdirectory (src)

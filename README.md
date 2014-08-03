@@ -8,12 +8,9 @@ Primes!
 To compile:
 -----------
 
-### Compile the [cppformat](https://github.com/cppformat/cppformat) library.
+### Fetch the [cppformat](https://github.com/cppformat/cppformat) library.
 ```
 git submodule update --init
-cd cppformat
-cmake .
-make format
 ```
 
 ### In debug mode
